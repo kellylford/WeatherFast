@@ -172,7 +172,7 @@ jobs:
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/windows-v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: WeatherFast ${{ steps.ver.outputs.version }} (Windows)
           body_path: windows/RELEASE_NOTES_${{ steps.ver.outputs.version }}.md
