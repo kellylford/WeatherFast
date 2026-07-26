@@ -47,8 +47,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Files]
-; The PyInstaller one-file build output (produced by ../windows/build.py).
-Source: "..\windows\dist\WeatherFast.exe"; DestDir: "{app}"; Flags: ignoreversion
+; The PyInstaller one-dir build output (produced by ../windows/build.py): the
+; executable plus its _internal support folder.
+Source: "..\windows\dist\WeatherFast\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autostartmenu}\WeatherFast"; Filename: "{app}\{#MyAppExeName}"
@@ -56,3 +57,32 @@ Name: "{autodesktop}\WeatherFast"; Filename: "{app}\{#MyAppExeName}"; Tasks: des
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch WeatherFast"; Flags: nowait postinstall skipifsilent
+
+[Code]
+// Force-close any WeatherFast process still holding the installed executable.
+// (Comments here use // rather than braces: Inno's brace comments do not nest,
+// so an {app}-style constant inside one would terminate it early.)
+//
+// AppMutex and CloseApplications are not sufficient when upgrading from a 3.0.x
+// one-file build. Those ran a bootloader parent plus a Python child, and only
+// the child created WeatherFastRunning - so once it exited the mutex was gone
+// even though the parent was still alive holding the .exe open, parked on the
+// bootloader's "Failed to remove temporary directory" dialog. Restart Manager
+// cannot shift that either: a process whose message loop has already ended does
+// not act on the WM_CLOSE that CloseApplications sends. The result was setup
+// failing with "DeleteFile failed; code 5. Access is denied."
+//
+// Killing it is safe here: in that state the application has finished its work
+// and is only displaying a shutdown warning. A genuinely running instance is
+// still caught earlier by AppMutex, which prompts the user first.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+begin
+  Result := '';  // never block the install - a lock still surfaces as a file error
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM WeatherFast.exe', '',
+       SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  // 128 = "no such process", the normal case. Give Windows a moment either way
+  // so the handle is released before the file copy starts.
+  Sleep(500);
+end;

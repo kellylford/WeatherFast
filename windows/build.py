@@ -73,12 +73,24 @@ def main():
     print("-" * 60)
     
     # PyInstaller command
+    #
+    # --onedir, NOT --onefile. A one-file build unpacks itself to a _MEIxxxx
+    # temp directory at startup and deletes it on exit; when that delete fails
+    # (antivirus still scanning it, a handle still open) the bootloader shows a
+    # modal "Failed to remove temporary directory" warning and the process stays
+    # alive holding WeatherFast.exe open. That breaks the in-app updater every
+    # time: the installer cannot replace a locked file ("DeleteFile failed; code
+    # 5"). One-file also splits into a bootloader parent plus a child process,
+    # and only the child holds the AppMutex the installer looks for - so the
+    # installer's running-app check misses the parent that owns the lock.
+    # One-dir has no extraction step and runs as a single process, which removes
+    # both problems and starts faster.
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm", # Overwrite output directory
         "--name=WeatherFast",
         "--windowed",  # No console window
-        "--onefile",   # Single executable file
+        "--onedir",    # Folder build (see note above - do not use --onefile)
         "--icon=NONE", # No icon (you can add one later)
         "--add-data", "city.json;.", # Embed city.json as a resource
         "--add-data", "us-cities-cached.json;.", # Embed US cities cache
@@ -103,24 +115,37 @@ def main():
     print("✓ Build complete!")
     print()
     
-    # Check output
-    dist_dir = "dist"
-    exe_path = os.path.join(dist_dir, "WeatherFast.exe")
-    
-    if os.path.exists(exe_path):
-        print(f"Executable location: {os.path.abspath(exe_path)}")
-        print()
-        
-        size_mb = os.path.getsize(exe_path) / (1024 * 1024)
-        print(f"Executable size: {size_mb:.1f} MB")
-        print()
-        
-        print("To distribute:")
-        print(f"  Just share the 'WeatherFast.exe' file.")
-        print()
-    else:
+    # Check output. --onedir puts everything in dist/WeatherFast/.
+    app_dir = os.path.join("dist", "WeatherFast")
+    exe_path = os.path.join(app_dir, "WeatherFast.exe")
+
+    if not os.path.exists(exe_path):
         print("✗ Build output not found!")
         return 1
+
+    print(f"Application folder: {os.path.abspath(app_dir)}")
+    print()
+
+    total = sum(
+        os.path.getsize(os.path.join(root, f))
+        for root, _, files in os.walk(app_dir)
+        for f in files
+    )
+    print(f"Folder size: {total / (1024 * 1024):.1f} MB")
+    print()
+
+    # Portable download: the whole folder, zipped. A one-dir build has no
+    # single portable .exe (see the --onedir note above).
+    zip_path = shutil.make_archive(
+        os.path.join("dist", "WeatherFast-portable"), "zip", "dist", "WeatherFast")
+    print(f"Portable zip: {os.path.abspath(zip_path)} "
+          f"({os.path.getsize(zip_path) / (1024 * 1024):.1f} MB)")
+    print()
+
+    print("To distribute:")
+    print("  Installer: build installer/weatherfast.iss over dist/WeatherFast.")
+    print("  Portable:  share WeatherFast-portable.zip (extract the folder and run).")
+    print()
     
     print()
     print("=" * 60)
