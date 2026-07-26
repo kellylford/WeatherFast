@@ -31,11 +31,3 @@ def fetch_alerts(lat, lon, use_cache=True):
     alerts.sort(key=lambda a: a.sort_key)
     _cache.set(key, alerts)
     return alerts
-
-
-def has_active_alerts(lat, lon):
-    """Best-effort boolean for badging; returns None if the check failed."""
-    try:
-        return len(fetch_alerts(lat, lon)) > 0
-    except Exception:
-        return None

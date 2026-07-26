@@ -64,6 +64,21 @@ jobs:
           }
           Write-Host "Version OK: $ver"
 
+      # Release notes are written by hand per version and published as the
+      # release body (the generated commit changelog is appended below them).
+      # Checked here so a missing file fails fast, before the build and signing,
+      # rather than at the publish step.
+      - name: Verify release notes exist
+        if: startsWith(github.ref, 'refs/tags/windows-v')
+        shell: pwsh
+        run: |
+          $v = '${{ github.ref_name }}' -replace '^windows-v', ''
+          $notes = "windows/RELEASE_NOTES_$v.md"
+          if (-not (Test-Path $notes)) {
+            throw "Missing $notes. Write the release notes for $v and commit them before tagging."
+          }
+          Write-Host "Release notes OK: $notes"
+
       - name: Determine version
         id: ver
         shell: pwsh
@@ -150,6 +165,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: WeatherFast ${{ steps.ver.outputs.version }} (Windows)
+          body_path: windows/RELEASE_NOTES_${{ steps.ver.outputs.version }}.md
           generate_release_notes: true
           files: |
             windows/dist/WeatherFast.exe
