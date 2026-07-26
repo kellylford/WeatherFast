@@ -5,15 +5,22 @@ name: Publish User Guide
 # publishes it to the gh-pages branch, which GitHub Pages serves. The desktop
 # app's Help > User Guide and F1 open the published site.
 
+# The published page is stamped with __version__, so the version file is a
+# trigger: bumping it for a release republishes the guide with the new number.
+#
+# There is deliberately no `release: [published]` trigger. The Windows release
+# is created by softprops/action-gh-release using the default GITHUB_TOKEN, and
+# GitHub does not start workflow runs from events raised by that token (it
+# prevents recursive runs). That trigger silently never fired, which is how the
+# site stayed stamped 1.1 through the 3.0.0 release.
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'docs/user-guide.md'
+      - 'windows/fastweather/__init__.py'
       - '.github/workflows/publish-user-guide.yml'
-  release:
-    types: [published]
 
 permissions:
   contents: write
