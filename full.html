@@ -222,15 +222,21 @@ key is needed.</p>
 <code>WeatherFast-&lt;version&gt;-Setup.exe</code>. This performs a
 per-user install into your local application data folder and adds a
 Start Menu shortcut. It does not require administrator rights and
-installs only for your account.</li>
-<li><strong>Portable</strong> — run <code>WeatherFast.exe</code>
-directly. Nothing is installed; the app runs from wherever the file
-sits.</li>
+installs only for your account. This is the recommended option, and the
+only one that receives automatic updates.</li>
+<li><strong>Portable</strong> — download
+<code>WeatherFast-portable.zip</code> and extract it wherever you like,
+then run <code>WeatherFast.exe</code> from inside the extracted folder.
+Nothing is installed. Keep the folder intact: the <code>_internal</code>
+folder next to the executable is required, so move or copy the whole
+folder rather than the <code>.exe</code> on its own.</li>
 </ul>
-<p>WeatherFast is not yet code-signed. The first time you run either
-version, Windows SmartScreen may show a warning. If that happens, choose
-<strong>More info</strong> and then <strong>Run anyway</strong> to start
-the app.</p>
+<p>WeatherFast is code-signed. Even so, the first time you run it
+Windows SmartScreen may still show a warning, because SmartScreen also
+weighs how widely a given signature has been seen and a newer
+certificate has little history yet. If that happens, choose <strong>More
+info</strong> and then <strong>Run anyway</strong> to start the app. The
+warning should become less frequent over time.</p>
 <h3 id="first-launch">First launch</h3>
 <p>On its first run the app seeds a short list of default cities
 (including Madison, San Diego, Portland, London, Miami, and a few
@@ -285,9 +291,11 @@ description, a rain or snow marker when precipitation is falling, and
 today's high and low. For example:
 <code>Madison, Wisconsin, United States - 72°F, Partly Cloudy (High: 78°F, Low: 61°F)</code>.</p>
 <p>For US places with an active weather warning, the row also ends with
-a <strong>[ALERT]</strong> marker so you can see at a glance which
-cities have something in effect. This check runs only for US
-locations.</p>
+a marker naming the most serious alert in effect — for example
+<code>[EXTREME: Tornado Warning]</code>, or
+<code>[EXTREME: Tornado Warning, +1 more]</code> when there is more than
+one. This check runs only for US locations. Open the city's Full Weather
+to read the alert itself.</p>
 <p>Below the list are buttons that act on the selected city:</p>
 <table>
 <thead>
@@ -395,6 +403,8 @@ a selected city) to see the detailed forecast for a place. The view is a
 readable text report with these sections, depending on what you have
 enabled:</p>
 <ul>
+<li><strong>Alerts</strong> — any active weather warnings for this
+place, shown first, immediately below the city heading. See below.</li>
 <li><strong>Current</strong> — the conditions right now (temperature,
 and any other current fields you have turned on).</li>
 <li><strong>Today's Outlook</strong> — plain-language highlights for the
@@ -440,6 +450,37 @@ day.</li>
 days (up to about a week in either direction). When you move off today,
 the view shows that day's summary and its hour-by-hour detail. Press
 Escape or <strong>Back</strong> to return to the list.</p>
+<h3 id="alerts-in-the-report">Alerts in the report</h3>
+<p>When a US place has active National Weather Service warnings, they
+appear at the top of the report, under the city name and ahead of the
+forecast, most serious first:</p>
+<pre><code>Report for Madison, Wisconsin
+ALERTS
+MODERATE: Heat Advisory - until Sun Jul 26 09:00 PM
+CURRENT
+...</code></pre>
+<p>Press Enter on an alert line to read the whole thing — description,
+safety instructions, affected areas, the period it covers, and a button
+that opens the official National Weather Service page.</p>
+<p>The section always tells you which of three situations you are in, so
+a problem is never mistaken for good news:</p>
+<ul>
+<li><strong>Alerts are listed</strong> — those are what is in effect
+now.</li>
+<li><strong>"No active alerts."</strong> — the check succeeded and there
+is nothing in effect.</li>
+<li><strong>"Could not check for alerts."</strong> — the check itself
+failed. This is <em>not</em> the same as no alerts, and the section says
+so. Press Enter on the line below it to try again.</li>
+</ul>
+<p>Alerts are shown for today only. Moving to another day with
+<strong>Prev Day</strong> or <strong>Next Day</strong> hides them,
+because a warning in force now says nothing about another day's
+forecast.</p>
+<p>Places outside the United States have no Alerts section at all, since
+the National Weather Service covers only US locations. For alerts
+elsewhere, see <strong>Browse Weather Alerts</strong>, which also covers
+Canada.</p>
 <h2 id="configure-display-and-units">Configure Display and Units</h2>
 <p>Open <strong>Configure</strong> (a button on the main window or Full
 Weather view, or <strong>Configure Display &amp; Units...</strong> on
@@ -508,12 +549,16 @@ apply to the city currently selected (or the city shown in Full
 Weather). Select a city first; if none is selected, the app prompts you
 to choose one.</p>
 <h3 id="weather-alerts">Weather Alerts</h3>
-<p>Shows active US National Weather Service alerts for the selected
-city. Alerts are listed with the most serious first; select one and
-choose <strong>View Details</strong> (or press Enter) to read the full
-alert. When there are none, the dialog clearly says so, and if the check
-fails it says the check could not be completed — a failure is never
-reported as "no alerts."</p>
+<p>Shows active US National Weather Service alerts for the selected city
+in a separate window. Alerts are listed with the most serious first;
+select one and choose <strong>View Details</strong> (or press Enter) to
+read the full alert. When there are none, the dialog clearly says so,
+and if the check fails it says the check could not be completed — a
+failure is never reported as "no alerts."</p>
+<p>The same alerts also appear at the top of the city's Full Weather
+report, which is usually the quicker route — see <strong>Alerts in the
+report</strong>. This window remains useful when you want the alerts on
+their own, without the forecast around them.</p>
 <h3 id="expected-precipitation">Expected Precipitation</h3>
 <p>A short-range precipitation timeline for the next hour, in 15-minute
 steps, showing when and how intensely precipitation is expected. This is

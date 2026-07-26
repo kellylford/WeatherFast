@@ -31,6 +31,8 @@ a selected city) to see the detailed forecast for a place. The view is a
 readable text report with these sections, depending on what you have
 enabled:</p>
 <ul>
+<li><strong>Alerts</strong> — any active weather warnings for this
+place, shown first, immediately below the city heading. See below.</li>
 <li><strong>Current</strong> — the conditions right now (temperature,
 and any other current fields you have turned on).</li>
 <li><strong>Today's Outlook</strong> — plain-language highlights for the
@@ -76,4 +78,35 @@ day.</li>
 days (up to about a week in either direction). When you move off today,
 the view shows that day's summary and its hour-by-hour detail. Press
 Escape or <strong>Back</strong> to return to the list.</p>
+<h3 id="alerts-in-the-report">Alerts in the report</h3>
+<p>When a US place has active National Weather Service warnings, they
+appear at the top of the report, under the city name and ahead of the
+forecast, most serious first:</p>
+<pre><code>Report for Madison, Wisconsin
+ALERTS
+MODERATE: Heat Advisory - until Sun Jul 26 09:00 PM
+CURRENT
+...</code></pre>
+<p>Press Enter on an alert line to read the whole thing — description,
+safety instructions, affected areas, the period it covers, and a button
+that opens the official National Weather Service page.</p>
+<p>The section always tells you which of three situations you are in, so
+a problem is never mistaken for good news:</p>
+<ul>
+<li><strong>Alerts are listed</strong> — those are what is in effect
+now.</li>
+<li><strong>"No active alerts."</strong> — the check succeeded and there
+is nothing in effect.</li>
+<li><strong>"Could not check for alerts."</strong> — the check itself
+failed. This is <em>not</em> the same as no alerts, and the section says
+so. Press Enter on the line below it to try again.</li>
+</ul>
+<p>Alerts are shown for today only. Moving to another day with
+<strong>Prev Day</strong> or <strong>Next Day</strong> hides them,
+because a warning in force now says nothing about another day's
+forecast.</p>
+<p>Places outside the United States have no Alerts section at all, since
+the National Weather Service covers only US locations. For alerts
+elsewhere, see <strong>Browse Weather Alerts</strong>, which also covers
+Canada.</p>
 <div class="nav"><a href="index.html">Contents</a> | <a href="full.html">Single Page</a> | <a href="add-my-location.html">Previous: Add My Location</a> | <a href="configure-display-and-units.html">Next: Configure Display and Units</a></div></body></html>

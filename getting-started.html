@@ -33,15 +33,21 @@
 <code>WeatherFast-&lt;version&gt;-Setup.exe</code>. This performs a
 per-user install into your local application data folder and adds a
 Start Menu shortcut. It does not require administrator rights and
-installs only for your account.</li>
-<li><strong>Portable</strong> — run <code>WeatherFast.exe</code>
-directly. Nothing is installed; the app runs from wherever the file
-sits.</li>
+installs only for your account. This is the recommended option, and the
+only one that receives automatic updates.</li>
+<li><strong>Portable</strong> — download
+<code>WeatherFast-portable.zip</code> and extract it wherever you like,
+then run <code>WeatherFast.exe</code> from inside the extracted folder.
+Nothing is installed. Keep the folder intact: the <code>_internal</code>
+folder next to the executable is required, so move or copy the whole
+folder rather than the <code>.exe</code> on its own.</li>
 </ul>
-<p>WeatherFast is not yet code-signed. The first time you run either
-version, Windows SmartScreen may show a warning. If that happens, choose
-<strong>More info</strong> and then <strong>Run anyway</strong> to start
-the app.</p>
+<p>WeatherFast is code-signed. Even so, the first time you run it
+Windows SmartScreen may still show a warning, because SmartScreen also
+weighs how widely a given signature has been seen and a newer
+certificate has little history yet. If that happens, choose <strong>More
+info</strong> and then <strong>Run anyway</strong> to start the app. The
+warning should become less frequent over time.</p>
 <h3 id="first-launch">First launch</h3>
 <p>On its first run the app seeds a short list of default cities
 (including Madison, San Diego, Portland, London, Miami, and a few
