@@ -26,7 +26,9 @@ from .ui.dialogs.config_dialog import WeatherConfigDialog
 from .ui.dialogs.location_browser import LocationBrowserDialog
 from .ui.events import EVT_FETCH_RESULT
 from .services import alert_service, location_service, updater
+from .ui.alert_format import RETRY, city_row_badge, highest, section_lines
 from .ui.dialogs.alert_browser_dialog import AlertBrowserDialog
+from .ui.dialogs.alert_detail_dialog import AlertDetailDialog
 from .ui.dialogs.alerts_dialog import AlertsDialog
 from .ui.dialogs.around_me_dialog import AroundMeDialog
 from .ui.dialogs.historical_dialog import HistoricalDialog
@@ -61,6 +63,16 @@ class MainFrame(wx.Frame):
         self.browse_favs = browse_favorites.load()
         self.day_offset = 0      # detailed-view date navigation (-7..+7)
         self.current_full_data = None
+
+        # Alert state. Row badges are kept separately from the weather text so a
+        # weather refresh can't drop a badge (and vice versa); the detailed
+        # view's ALERTS section tracks its own fetch state so "couldn't check"
+        # is never rendered as "no alerts".
+        self._row_text = {}        # city -> weather line, without the badge
+        self._row_badges = {}      # city -> badge suffix ("" when clear)
+        self.full_alert_state = "off"
+        self.full_alerts = []
+        self.full_alert_error = ""
 
         self.cities.load()
         # First run only: seed units from the user's Windows region (matches
@@ -174,7 +186,8 @@ class MainFrame(wx.Frame):
         head_row.Add(self.btn_config, 0, wx.ALIGN_CENTER_VERTICAL)
         fv_sizer.Add(head_row, 0, wx.EXPAND | wx.ALL, 10)
 
-        self.full_display = AccessibleLinesPanel(self.full_view)
+        self.full_display = AccessibleLinesPanel(self.full_view, activatable=True)
+        self.full_display.set_activate_handler(self._open_alert)
         fv_sizer.Add(self.full_display, 1, wx.EXPAND | wx.ALL, 10)
         self.full_view.SetSizer(fv_sizer)
 
@@ -785,6 +798,51 @@ class MainFrame(wx.Frame):
         self.full_display.set_focus()
         self._update_title()
         self._fetch_weather(city, lat, lon, "full")
+        self._fetch_full_alerts(city, lat, lon)
+
+    def _fetch_full_alerts(self, city, lat, lon):
+        """Load the detailed view's ALERTS section (US only - NWS has no
+        coverage elsewhere, so the section is omitted rather than empty)."""
+        self.full_alerts = []
+        self.full_alert_error = ""
+        if not self._is_us_coord(lat, lon):
+            self.full_alert_state = "off"
+            return
+        self.full_alert_state = "loading"
+        self.fetch.submit(
+            "full_alerts",
+            lambda: alert_service.fetch_alerts(lat, lon),
+            request_id=city,
+        )
+
+    def _on_full_alerts(self, city, alerts, error):
+        # Ignore results for a city the user has already navigated away from.
+        if (not hasattr(self, "current_full_city")
+                or self.current_full_city[0] != city):
+            return
+        if error:
+            self.full_alert_state = "error"
+            self.full_alert_error = error
+            self.statusbar.SetStatusText(f"Could not check alerts for {city}", 0)
+        else:
+            self.full_alert_state = "ok"
+            self.full_alerts = alerts or []
+            n = len(self.full_alerts)
+            self.statusbar.SetStatusText(
+                f"{n} active alert{'s' if n != 1 else ''} for {city}" if n
+                else f"No active alerts for {city}", 0)
+        self._render_full()
+
+    def _open_alert(self, payload):
+        """Activate a data row in the detailed view (alert sheet, or retry)."""
+        if payload == RETRY:
+            city, lat, lon = self.current_full_city
+            self._fetch_full_alerts(city, lat, lon)
+            self._render_full()
+            return
+        dlg = AlertDetailDialog(self, payload)
+        dlg.ShowModal()
+        dlg.Destroy()
 
     def nav_day(self, direction):
         """Navigate the detailed view by day (direction 0 resets to today)."""
@@ -803,12 +861,25 @@ class MainFrame(wx.Frame):
         return f"{'+' if n > 0 else ''}{n} day" + ("s" if abs(n) != 1 else "")
 
     def _render_full(self):
-        if self.current_full_data is None or not hasattr(self, "current_full_city"):
+        if not hasattr(self, "current_full_city"):
             return
         city = self.current_full_city[0]
         data = self.current_full_data
+
+        # Alerts sit directly under the city heading - ahead of the forecast,
+        # but never displacing the line that says which city this is. Today
+        # only: a warning in force now says nothing about the forecast for
+        # another day (matches iOS, which clears alerts for a date offset).
         if self.day_offset == 0:
-            lines = build_full_weather_lines(city, data, self.settings, self.fmt)
+            alert_lines, alert_rows = section_lines(
+                self.full_alert_state, self.full_alerts, self.full_alert_error)
+        else:
+            alert_lines, alert_rows = [], {}
+
+        if data is None:
+            weather_lines = [f"Report for {city}", "=" * 40, "Loading forecast..."]
+        elif self.day_offset == 0:
+            weather_lines = build_full_weather_lines(city, data, self.settings, self.fmt)
         else:
             ref = data.get("current", {}).get("time", "")[:10]
             try:
@@ -816,9 +887,24 @@ class MainFrame(wx.Frame):
                 target = (date.fromisoformat(ref) + timedelta(days=self.day_offset)).isoformat()
             except Exception:
                 return
-            lines = build_day_lines(city, data, self.settings, self.fmt, target,
-                                    self._day_label())
-        self.full_display.set_lines(lines)
+            weather_lines = build_day_lines(city, data, self.settings, self.fmt, target,
+                                            self._day_label())
+
+        # Alerts and forecast arrive independently, so this re-renders while the
+        # user may already be reading. Hold their place unless the city or day
+        # changed, which would make the old position meaningless.
+        key = (city, self.day_offset)
+        keep = key == getattr(self, "_last_render_key", None)
+        self._last_render_key = key
+
+        # Splice the alerts in after the "Report for <city>" heading and its
+        # rule, shifting the activation map to match their new positions.
+        lines = list(weather_lines)
+        at = min(2, len(lines))
+        lines[at:at] = alert_lines
+        row_alerts = {i + at: a for i, a in alert_rows.items()}
+
+        self.full_display.set_lines(lines, row_alerts, keep_selection=keep)
         self._update_title()
 
     def _update_title(self):
@@ -826,8 +912,15 @@ class MainFrame(wx.Frame):
         app = "WeatherFast"
         if self.book.GetSelection() == 1 and hasattr(self, "current_full_city"):
             city = self.current_full_city[0]
+            # Lead the window name with the worst active alert so the screen
+            # reader announces it when the detailed view is entered.
+            mark = ""
+            if self.day_offset == 0 and self.full_alert_state == "ok":
+                top = highest(self.full_alerts)
+                if top is not None:
+                    mark = f"{top.severity.upper()} ALERT - "
             if self.day_offset == 0:
-                self.SetTitle(f"{city} - Full Weather - {app}")
+                self.SetTitle(f"{mark}{city} - Full Weather - {app}")
             else:
                 self.SetTitle(f"{city} - {self._day_label()} - {app}")
         else:
@@ -836,6 +929,7 @@ class MainFrame(wx.Frame):
     def on_back(self, event):
         self.book.SetSelection(0)
         self.city_list.SetFocus()
+        self.statusbar.SetStatusText("Ready", 0)
         self._update_title()
 
     def on_config(self, event):
@@ -898,10 +992,12 @@ class MainFrame(wx.Frame):
             else:
                 self._add_location_city(event.payload)
         elif event.kind == "alert_badge":
-            # Best-effort: only badge on a positive result; never annotate on
-            # error (can't distinguish "no alerts" from "couldn't check").
-            if not event.error and event.payload:
-                self._apply_alert_badge(event.request_id)
+            # Best-effort: never annotate on error (a failed check can't be
+            # distinguished from "no alerts", and must not read as either).
+            if not event.error:
+                self._apply_alert_badge(event.request_id, event.payload or [])
+        elif event.kind == "full_alerts":
+            self._on_full_alerts(event.request_id, event.payload, event.error)
 
     @staticmethod
     def _is_us_coord(lat, lon):
@@ -921,15 +1017,28 @@ class MainFrame(wx.Frame):
             return
         self.fetch.submit(
             "alert_badge",
-            lambda: alert_service.has_active_alerts(lat, lon),
+            lambda: alert_service.fetch_alerts(lat, lon),
             request_id=city,
         )
 
-    def _apply_alert_badge(self, city):
+    def _apply_alert_badge(self, city, alerts):
+        self._row_badges[city] = city_row_badge(alerts)
+        self._refresh_city_row(city)
+
+    def _refresh_city_row(self, city):
+        """Repaint a city's row from its weather text plus its alert badge.
+
+        The two arrive from independent fetches, so the row is always composed
+        from both rather than appended to in place - otherwise a weather
+        refresh silently drops the badge.
+        """
+        base = self._row_text.get(city)
+        if base is None:
+            return
+        text = base + self._row_badges.get(city, "")
         for i in range(self.city_list.GetCount()):
-            text = self.city_list.GetString(i)
-            if text.startswith(city + " - ") and "[ALERT]" not in text:
-                self.city_list.SetString(i, text + "  [ALERT]")
+            if self.city_list.GetString(i).startswith(city + " - "):
+                self.city_list.SetString(i, text)
                 break
 
     def on_weather_ready(self, city, data):
@@ -983,12 +1092,9 @@ class MainFrame(wx.Frame):
                 precip_text = " [Rain]"
 
             temp_display = self.fmt.temperature_short(temp_c)
-            new_text = f"{city} - {temp_display}{cloud_text}{precip_text}{daily_temps}"
-
-            for i in range(self.city_list.GetCount()):
-                if self.city_list.GetString(i).startswith(city + " - "):
-                    self.city_list.SetString(i, new_text)
-                    break
+            self._row_text[city] = (
+                f"{city} - {temp_display}{cloud_text}{precip_text}{daily_temps}")
+            self._refresh_city_row(city)
 
             # Best-effort alert badge for US cities (cached 5 min).
             if city in self.cities:

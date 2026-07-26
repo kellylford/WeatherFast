@@ -8,4 +8,4 @@ Note: the Python package/module is still imported as ``fastweather`` (import
 name only, never shown to users); the product name is WeatherFast.
 """
 
-__version__ = "3.0.0"
+__version__ = "3.0.1"
