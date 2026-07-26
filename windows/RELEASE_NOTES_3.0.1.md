@@ -1,6 +1,6 @@
 WeatherFast 3.0.1 is a complete rebuild of the Windows app — same free data (no
 account or API key), with a much larger feature set, a proper installer, and
-signed binaries. It replaces 3.0.0, which has been withdrawn.
+signed binaries. It replaces 3.0.0.
 
 ## Install
 
@@ -14,14 +14,16 @@ Both downloads are code-signed.
 
 ### If you already have 3.0.0
 
-Please **uninstall 3.0.0 first** (Settings → Apps, or the Start Menu uninstall
-entry), then install 3.0.1. 3.0.0 had a packaging fault that could leave the
-application running invisibly after you closed it, holding its own files open —
-which made in-place updates fail with "DeleteFile failed; code 5. Access is
-denied." That is fixed in 3.0.1, but a clean install is the reliable way across.
+Nothing special to do — WeatherFast will offer 3.0.1 the next time you start it,
+and installing it over 3.0.0 works. You can also just download and run the
+installer yourself.
 
-If an install ever does report that error, close WeatherFast (or end
-`WeatherFast.exe` in Task Manager) and run the installer again.
+3.0.0 had a packaging fault that could leave the application running invisibly
+after you closed it, holding its own files open, which made an update fail with
+"DeleteFile failed; code 5. Access is denied." 3.0.1 fixes that, and its
+installer clears any stuck copy on the way in. In the unlikely event you still
+see that error, close WeatherFast — or end `WeatherFast.exe` in Task Manager —
+and run the installer again.
 
 ## Highlights
 
