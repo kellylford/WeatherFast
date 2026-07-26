@@ -120,11 +120,21 @@ jobs:
           endpoint: https://eus.codesigning.azure.net/
           signing-account-name: kellylford
           certificate-profile-name: kellyford-public
-          files-folder: ${{ github.workspace }}\windows\dist
+          files-folder: ${{ github.workspace }}\windows\dist\WeatherFast
           files-folder-filter: exe
           file-digest: SHA256
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
+
+      # Re-zip after signing. build.py also writes this zip, but it runs before
+      # the signing step, so that copy holds an unsigned executable.
+      - name: Package portable zip (post-signing)
+        shell: pwsh
+        run: |
+          $zip = "windows/dist/WeatherFast-portable.zip"
+          if (Test-Path $zip) { Remove-Item $zip }
+          Compress-Archive -Path windows/dist/WeatherFast -DestinationPath $zip
+          Write-Host "Portable zip: $((Get-Item $zip).Length / 1MB) MB"
 
       - name: Build installer (Inno Setup)
         shell: pwsh
@@ -155,7 +165,7 @@ jobs:
         with:
           name: WeatherFast-${{ steps.ver.outputs.version }}
           path: |
-            windows/dist/WeatherFast.exe
+            windows/dist/WeatherFast-portable.zip
             installer/Output/WeatherFast-*-Setup.exe
           if-no-files-found: error
           retention-days: 14
@@ -168,6 +178,6 @@ jobs:
           body_path: windows/RELEASE_NOTES_${{ steps.ver.outputs.version }}.md
           generate_release_notes: true
           files: |
-            windows/dist/WeatherFast.exe
+            windows/dist/WeatherFast-portable.zip
             installer/Output/WeatherFast-*-Setup.exe
           fail_on_unmatched_files: true
