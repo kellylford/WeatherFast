@@ -18,6 +18,7 @@ struct CityDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingHistoricalWeather = false
     @State private var showingRadar = false
+    @State private var showingRadarLoop = false
     @State private var showingWeatherAroundMe = false
     @State private var selectedAlert: WeatherAlert?
     @State private var activeAlerts: [WeatherAlert] = []
@@ -846,6 +847,12 @@ struct CityDetailView: View {
                                 Label("Expected Precipitation", systemImage: "cloud.rain")
                             }
                         }
+
+                        if featureFlags.radarLoopEnabled {
+                            Button(action: { showingRadarLoop = true }) {
+                                Label("Radar", systemImage: "antenna.radiowaves.left.and.right")
+                            }
+                        }
                         
                         if featureFlags.weatherAroundMeEnabled {
                             Button(action: { showingWeatherAroundMe = true }) {
@@ -947,6 +954,19 @@ struct CityDetailView: View {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button("Done") {
                                 showingRadar = false
+                            }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showingRadarLoop) {
+            NavigationView {
+                RadarLoopView(city: city)
+                    .environmentObject(settingsManager)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("Done") {
+                                showingRadarLoop = false
                             }
                         }
                     }

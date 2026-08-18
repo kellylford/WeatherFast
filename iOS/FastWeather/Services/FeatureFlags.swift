@@ -21,6 +21,15 @@ class FeatureFlags: ObservableObject {
             UserDefaults.standard.set(radarEnabled, forKey: "feature_radar_enabled")
         }
     }
+
+    /// Enable/disable the NEXRAD radar loop screen (experimental)
+    /// Animated NWS radar frames, steppable one at a time so VoiceOver's
+    /// Image Explorer can describe each frame. US coverage only.
+    @Published var radarLoopEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(radarLoopEnabled, forKey: "feature_radar_loop_enabled")
+        }
+    }
     
     /// Enable/disable weather around me feature (in development)
     /// Set to true to show regional weather comparison button and functionality
@@ -144,6 +153,7 @@ class FeatureFlags: ObservableObject {
     private init() {
         // Load saved feature flag states
         self.radarEnabled = UserDefaults.standard.bool(forKey: "feature_radar_enabled")
+        self.radarLoopEnabled = UserDefaults.standard.bool(forKey: "feature_radar_loop_enabled")
         self.weatherAroundMeEnabled = UserDefaults.standard.bool(forKey: "feature_weather_around_me_enabled")
         self.userGuideEnabled = UserDefaults.standard.bool(forKey: "feature_user_guide_enabled")
         self.weatherKitAlertsEnabled = UserDefaults.standard.bool(forKey: "feature_weatherkit_alerts_enabled")
@@ -162,6 +172,9 @@ class FeatureFlags: ObservableObject {
         // All features enabled by default for production
         if !UserDefaults.standard.contains(key: "feature_radar_enabled") {
             self.radarEnabled = true  // Enabled by default
+        }
+        if !UserDefaults.standard.contains(key: "feature_radar_loop_enabled") {
+            self.radarLoopEnabled = true  // On by default on this experiment branch
         }
         if !UserDefaults.standard.contains(key: "feature_weather_around_me_enabled") {
             self.weatherAroundMeEnabled = true  // Enabled by default

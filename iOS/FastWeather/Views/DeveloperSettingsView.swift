@@ -19,6 +19,10 @@ struct DeveloperSettingsView: View {
             Form {
                 Section(header: Text("Feature Flags")) {
 
+                    Toggle("Radar Loop", isOn: $featureFlags.radarLoopEnabled)
+                        .accessibilityLabel("Radar Loop feature toggle")
+                        .accessibilityHint(featureFlags.radarLoopEnabled ? "Radar Loop is enabled. A Radar button appears in city detail showing an animated NEXRAD loop you can step through one frame at a time. US coverage only." : "Radar Loop is disabled. The Radar button will not appear in city detail.")
+
                     Toggle("My Location Section", isOn: $featureFlags.myLocationEnabled)
                         .accessibilityLabel("My Location feature toggle")
                         .accessibilityHint(featureFlags.myLocationEnabled ? "My Location is enabled. A My Location section appears on the city list when the user setting is also on." : "My Location is disabled globally. The My Location section will not appear regardless of user settings.")
