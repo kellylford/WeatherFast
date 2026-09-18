@@ -174,7 +174,7 @@ class FeatureFlags: ObservableObject {
             self.radarEnabled = true  // Enabled by default
         }
         if !UserDefaults.standard.contains(key: "feature_radar_loop_enabled") {
-            self.radarLoopEnabled = true  // On by default on this experiment branch
+            self.radarLoopEnabled = false  // Off by default; opt in via Developer Settings
         }
         if !UserDefaults.standard.contains(key: "feature_weather_around_me_enabled") {
             self.weatherAroundMeEnabled = true  // Enabled by default

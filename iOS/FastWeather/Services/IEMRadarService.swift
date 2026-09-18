@@ -174,8 +174,8 @@ final class IEMRadarService {
                         latitude: Self.tileLat(ty, z), longitude: Self.tileLon(tx, z))
                     let se = CLLocationCoordinate2D(
                         latitude: Self.tileLat(ty + 1, z), longitude: Self.tileLon(tx + 1, z))
-                    let pNW = await snapshot.point(for: nw)
-                    let pSE = await snapshot.point(for: se)
+                    let pNW = snapshot.point(for: nw)
+                    let pSE = snapshot.point(for: se)
                     let rect = CGRect(x: pNW.x, y: pNW.y,
                                       width: pSE.x - pNW.x, height: pSE.y - pNW.y)
                     return (image, rect)
