@@ -20,10 +20,47 @@
 //
 
 import SwiftUI
+import Combine
+
+/// Where the frames come from. The two sources are genuinely different
+/// products, not two routes to the same picture — see IEMRadarService for the
+/// full comparison.
+enum RadarSource: String, CaseIterable, Identifiable {
+    case ridge
+    case iem
+
+    var id: String { rawValue }
+
+    var shortName: String {
+        switch self {
+        case .ridge: return "NWS"
+        case .iem:   return "Composite"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .ridge: return "10 frames · 2 min apart · 18 minutes · one station"
+        case .iem:   return "12 frames · 5 min apart · 55 minutes · centred on your city"
+        }
+    }
+
+    var accessibilityDescription: String {
+        switch self {
+        case .ridge:
+            return "National Weather Service station image. Ten frames, two minutes "
+                 + "apart, covering eighteen minutes, from a single radar station."
+        case .iem:
+            return "Multi-radar composite on a map. Twelve frames, five minutes "
+                 + "apart, covering fifty-five minutes, centred on your city."
+        }
+    }
+}
 
 struct RadarLoopView: View {
     let city: City
 
+    @State private var source: RadarSource = .ridge
     @State private var loop: RadarLoop?
     @State private var index: Int = 0
     @State private var isLoading = true
@@ -43,6 +80,8 @@ struct RadarLoopView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            sourcePicker
+
             if isLoading {
                 Spacer()
                 ProgressView("Loading radar…")
@@ -69,12 +108,37 @@ struct RadarLoopView: View {
             }
         }
         .task { await load() }
+        .onChange(of: source) { _, _ in Task { await load() } }
         .onReceive(tick) { _ in advanceIfPlaying() }
         .onReceive(NotificationCenter.default.publisher(
             for: UIAccessibility.voiceOverStatusDidChangeNotification)) { _ in
             voiceOverRunning = UIAccessibility.isVoiceOverRunning
             if voiceOverRunning { isPlaying = false }
         }
+    }
+
+    // MARK: - Source picker
+
+    private var sourcePicker: some View {
+        VStack(spacing: 4) {
+            Picker("Radar source", selection: $source) {
+                ForEach(RadarSource.allCases) { s in
+                    Text(s.shortName).tag(s)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityLabel("Radar source")
+            .accessibilityHint("Switches between the National Weather Service station "
+                             + "image and a multi-radar composite drawn on a map.")
+
+            Text(source.summary)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
     }
 
     // MARK: - Image
@@ -121,9 +185,49 @@ struct RadarLoopView: View {
         let position = index == loop.frames.count - 1
             ? "frame \(index + 1) of \(loop.frames.count), the most recent"
             : "frame \(index + 1) of \(loop.frames.count)"
-        return "Weather radar near \(city.name), \(position). "
-            + "From the \(loop.station.name) radar station. "
+
+        let origin = loop.station.map { "From the \($0.name) radar station. " }
+            ?? "A composite of every nearby radar, centred on \(city.name). "
+
+        return "Weather radar near \(city.name), \(position), \(timePhrase(loop)). "
+            + origin
+            + "Each step is \(intervalPhrase(loop)); the loop covers \(spanPhrase(loop)). "
             + "Use VoiceOver's image description to hear what this frame shows."
+    }
+
+    // MARK: - Time wording
+
+    /// The app formats times as 12-hour "h:mm a" everywhere (FormatHelper);
+    /// these frames are Dates rather than ISO strings, so match the format here.
+    private static let clock: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm a"
+        return f
+    }()
+
+    private func frameTime(_ loop: RadarLoop) -> Date? {
+        loop.frameTimes[safe: index]
+    }
+
+    /// "at 5:28 PM, 4 minutes ago" — both the clock time and the age, because
+    /// on a radar loop the age is the part that actually matters.
+    private func timePhrase(_ loop: RadarLoop) -> String {
+        guard let t = frameTime(loop) else { return "" }
+        let clockTime = Self.clock.string(from: t)
+        let minutesAgo = Int((Date().timeIntervalSince(t) / 60).rounded())
+        if minutesAgo <= 0 { return "at \(clockTime), just now" }
+        if minutesAgo == 1 { return "at \(clockTime), 1 minute ago" }
+        return "at \(clockTime), \(minutesAgo) minutes ago"
+    }
+
+    private func intervalPhrase(_ loop: RadarLoop) -> String {
+        let minutes = Int((loop.interval / 60).rounded())
+        return minutes == 1 ? "1 minute" : "\(minutes) minutes"
+    }
+
+    private func spanPhrase(_ loop: RadarLoop) -> String {
+        let minutes = Int((loop.span / 60).rounded())
+        return minutes == 1 ? "1 minute" : "\(minutes) minutes"
     }
 
     // MARK: - Controls
@@ -172,25 +276,43 @@ struct RadarLoopView: View {
             }
 
             VStack(spacing: 3) {
-                Text("\(loop.station.name) station · \(Int(loop.station.distanceKm.rounded())) km away")
-                Text("Radar: NWS NEXRAD (radar.weather.gov)")
+                if let station = loop.station {
+                    Text("\(station.name) station · \(Int(station.distanceKm.rounded())) km away")
+                } else {
+                    Text("\(loop.sourceName) · every radar in range")
+                }
+                Text("Frames \(intervalPhrase(loop)) apart · \(spanPhrase(loop)) of history")
+                Text(loop.attribution)
             }
             .font(.caption)
             .foregroundColor(.secondary)
             .multilineTextAlignment(.center)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(
-                "Source: \(loop.station.name) NEXRAD station, "
-                + "\(Int(loop.station.distanceKm.rounded())) kilometres away. "
-                + "Radar imagery from the National Weather Service.")
+            .accessibilityLabel(footerLabel(loop))
         }
         .padding()
     }
 
     private func frameCaption(_ loop: RadarLoop) -> String {
-        index == loop.frames.count - 1
-            ? "Frame \(index + 1) of \(loop.frames.count) — most recent"
-            : "Frame \(index + 1) of \(loop.frames.count)"
+        let time = frameTime(loop).map { Self.clock.string(from: $0) } ?? ""
+        let base = "Frame \(index + 1) of \(loop.frames.count)"
+        guard !time.isEmpty else { return base }
+        return index == loop.frames.count - 1
+            ? "\(base) · \(time) · most recent"
+            : "\(base) · \(time)"
+    }
+
+    private func footerLabel(_ loop: RadarLoop) -> String {
+        let origin: String
+        if let station = loop.station {
+            origin = "Source: \(station.name) NEXRAD station, "
+                   + "\(Int(station.distanceKm.rounded())) kilometres away."
+        } else {
+            origin = "Source: a composite of every NEXRAD radar in range."
+        }
+        return origin
+            + " Frames \(intervalPhrase(loop)) apart, covering \(spanPhrase(loop)). "
+            + loop.attribution
     }
 
     private func messageView(_ msg: String) -> some View {
@@ -215,7 +337,11 @@ struct RadarLoopView: View {
         message = nil
         resetZoom()
 
-        let result = await RadarLoopService.shared.loadLoop(for: city)
+        let result: RadarLoopResult
+        switch source {
+        case .ridge: result = await RadarLoopService.shared.loadLoop(for: city)
+        case .iem:   result = await IEMRadarService.shared.loadLoop(for: city)
+        }
         switch result {
         case .success(let l):
             loop = l

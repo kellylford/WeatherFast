@@ -78,6 +78,7 @@
 		C43F5923BEACC18BF31DFC99 /* FastWeatherWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A62CB507C34F8584AF86B4EB /* FastWeatherWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		C519090C63979E9D3FF76BB3 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9818FBD3FF2904F98C9AF0C5 /* WidgetKit.framework */; };
 		CE046B003A58C6559345F3A6 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E5E353DA647F3B0B2671055 /* SwiftUI.framework */; };
+		DDE8934756296D5F550CA283 /* IEMRadarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAE9174757126A0D261036F0 /* IEMRadarService.swift */; };
 		E41FA69A048BFD0F634DB005 /* RadarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 343FB8C597ECDBB8F82B9D13 /* RadarView.swift */; };
 		E4F1B4B29C76E05475F84205 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 582B5A12CF76291E75D023B0 /* AppLogger.swift */; };
 		FCF060427E69A6D68459749C /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F83A2A75D10D105C7225AE79 /* LocationService.swift */; };
@@ -199,6 +200,7 @@
 		CD557832C1BCA3C9AA2DF4EF /* BrowseModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BrowseModels.swift; sourceTree = "<group>"; };
 		CE56BAD519A834059D39FAD4 /* AlertBrowserService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlertBrowserService.swift; sourceTree = "<group>"; };
 		CF16741F882DA9F40F06E0C7 /* RadarLoopView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RadarLoopView.swift; sourceTree = "<group>"; };
+		EAE9174757126A0D261036F0 /* IEMRadarService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IEMRadarService.swift; sourceTree = "<group>"; };
 		F83A2A75D10D105C7225AE79 /* LocationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		ICLOUD0001 /* iCloudSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudSyncService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -369,6 +371,7 @@
 				CE56BAD519A834059D39FAD4 /* AlertBrowserService.swift */,
 				ABCDED0ABD51C18F51168639 /* AirQualityService.swift */,
 				55134765C18AD8834DA651D4 /* RadarLoopService.swift */,
+				EAE9174757126A0D261036F0 /* IEMRadarService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -621,6 +624,7 @@
 				2053823E0BCEF2EC5988EE6B /* AirQualityView.swift in Sources */,
 				48D63FB9D9401016710AB740 /* RadarLoopService.swift in Sources */,
 				B7BC708B8C09ACE7679EAB9B /* RadarLoopView.swift in Sources */,
+				DDE8934756296D5F550CA283 /* IEMRadarService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -30,8 +30,28 @@ struct RadarLoopStation {
 struct RadarLoop {
     /// Frames in chronological order — `frames.last` is the most recent.
     let frames: [UIImage]
-    let station: RadarLoopStation
+    /// Valid time of each frame, parallel to `frames`. Same count, same order.
+    let frameTimes: [Date]
+    /// The single NEXRAD site this loop came from, or nil for a multi-radar
+    /// composite (IEM) where no one station owns the picture.
+    let station: RadarLoopStation?
+    /// Human name of the source, e.g. "NWS RIDGE".
+    let sourceName: String
+    /// One-line credit shown under the controls.
+    let attribution: String
     let fetchedAt: Date
+
+    /// Gap between consecutive frames. Both sources are evenly spaced.
+    var interval: TimeInterval {
+        guard frameTimes.count >= 2 else { return 0 }
+        return frameTimes[1].timeIntervalSince(frameTimes[0])
+    }
+
+    /// Wall-clock span from oldest to newest frame.
+    var span: TimeInterval {
+        guard let f = frameTimes.first, let l = frameTimes.last else { return 0 }
+        return l.timeIntervalSince(f)
+    }
 }
 
 enum RadarLoopResult {
@@ -53,6 +73,12 @@ final class RadarLoopService {
     private static let maxUsefulDistanceKm: Double = 300
 
     private static let userAgent = "WeatherFast (weatherfast.online)"
+
+    /// RIDGE regenerates on a fixed 2-minute clock, not per volume scan —
+    /// verified 2026-09-06 against KMKX, KTLX and KBOX, which all carried the
+    /// identical 22:10 -> 22:28 UTC ten-frame sequence. So the loop is always
+    /// 10 frames covering 18 minutes.
+    private static let frameInterval: TimeInterval = 120
 
     /// Cached station list — the NWS list is large and effectively static.
     private var cachedStations: [Station]?
@@ -79,11 +105,27 @@ final class RadarLoopService {
                 + "NEXRAD covers the United States only.")
         }
 
-        guard let frames = await downloadLoopFrames(stationId: station.id), !frames.isEmpty else {
+        guard let (frames, newestAt) = await downloadLoopFrames(stationId: station.id),
+              !frames.isEmpty else {
             return .failure("Could not download the radar loop for station \(station.id).")
         }
 
-        return .success(RadarLoop(frames: frames, station: station, fetchedAt: Date()))
+        // The GIF carries no per-frame times; its Last-Modified header is when
+        // NWS rebuilt the loop, which is the newest frame's time to within a
+        // minute or so. Everything earlier is derived at the fixed cadence.
+        // Good enough to tell the user "each step is 2 minutes"; not to the second.
+        let newest = newestAt ?? Date()
+        let times = (0..<frames.count).map { i in
+            newest.addingTimeInterval(-Double(frames.count - 1 - i) * Self.frameInterval)
+        }
+
+        return .success(RadarLoop(
+            frames: frames,
+            frameTimes: times,
+            station: station,
+            sourceName: "NWS RIDGE",
+            attribution: "Radar: NWS NEXRAD (radar.weather.gov)",
+            fetchedAt: Date()))
     }
 
     // MARK: - Station lookup
@@ -146,7 +188,7 @@ final class RadarLoopService {
 
     // MARK: - Loop download
 
-    private func downloadLoopFrames(stationId: String) async -> [UIImage]? {
+    private func downloadLoopFrames(stationId: String) async -> ([UIImage], Date?)? {
         let sid = stationId.uppercased()
         let candidates = [
             "https://radar.weather.gov/ridge/standard/\(sid)_loop.gif",
@@ -164,12 +206,24 @@ final class RadarLoopService {
                   data.count > 1000,
                   let frames = extractGIFFrames(data: data), !frames.isEmpty else { continue }
 
+            let lastModified = (http.value(forHTTPHeaderField: "Last-Modified"))
+                .flatMap { Self.httpDateFormatter.date(from: $0) }
             AppLogger.network.debug("Radar loop: \(frames.count) frames from \(sid)")
-            return frames
+            return (frames, lastModified)
         }
         AppLogger.network.error("Radar loop: no loop GIF for station \(sid)")
         return nil
     }
+
+    /// RFC 1123 date, as used by Last-Modified. Fixed locale/zone so it parses
+    /// regardless of the user's settings.
+    private static let httpDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "GMT")
+        f.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        return f
+    }()
 
     /// Every frame of the animated GIF, in file order (oldest first).
     private func extractGIFFrames(data: Data) -> [UIImage]? {
