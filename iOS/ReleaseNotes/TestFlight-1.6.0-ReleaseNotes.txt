@@ -1,5 +1,15 @@
-***New: Radar (experimental, off by default)***
-WeatherFast now has animated weather radar for U.S. cities. It's off by default while we test it. To turn it on, go to Settings → Developer Settings and turn on Radar Loop. Then open any U.S. city, open the Actions menu (the "…" button) and choose Radar.
+***Turn the radar on first***
+Radar is off when you install this build, so you won't see it until you switch it on. Here's how:
+
+1. Go to Settings, scroll to the bottom, and choose Developer Settings.
+2. Turn on Radar Loop.
+3. Go back to your cities and open any U.S. city.
+4. Open the Actions menu (the "…" button) and choose Radar.
+
+If you can't find radar anywhere in the app, it's almost certainly because step 2 hasn't been done.
+
+***New: Radar (experimental)***
+WeatherFast now has animated weather radar for U.S. cities.
 
 There are two kinds of radar, picked with the switch at the top of the Radar screen:
 
