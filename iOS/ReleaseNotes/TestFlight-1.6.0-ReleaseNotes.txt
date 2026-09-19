@@ -17,7 +17,7 @@ NWS: The National Weather Service's own radar image from the radar station neare
 
 Composite: Every radar in the contiguous U.S. blended together and drawn on a map centred on your city, with your city marked in the middle. It has 12 frames covering the last 55 minutes, which makes it easier to see where weather is heading. Use the Map area switch to choose Local (about 140 miles across) or Regional (about 400 miles across).
 
-The loop plays on its own. To step through time, swipe left or right on the picture, as you would in Photos, or use Previous frame and Next frame. Pinch to zoom. The "i" button opens About Radar, which explains both options, when to choose each, and who provides the radar.
+The loop plays on its own. To step through time, swipe left or right on the picture, as you would in Photos, or use Previous frame and Next frame. Pinch to zoom. The About Radar button explains both options, when to choose each, and who provides the radar.
 
 VoiceOver: Each frame is a real image, so Intelligent Image Description in iOS 27 can describe it. While VoiceOver is on, the loop stays paused so the picture doesn't change while you're reading it. Swipe left or right with three fingers to move between frames, as you would in Photos, or use Previous frame and Next frame, to hear how the weather moves over time. A description only covers what's in the picture, so if you want to hear about weather farther away, choose Composite and then Regional.
 

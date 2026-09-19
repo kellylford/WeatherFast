@@ -111,7 +111,7 @@ struct RadarLoopView: View {
                 Button(action: { showingInfo = true }) {
                     Image(systemName: "info.circle")
                 }
-                .accessibilityLabel("About radar")
+                .accessibilityLabel("About Radar")
                 .accessibilityHint("Explains the NWS and Composite radar options, when to choose each, and who provides the radar.")
 
                 Button(action: { Task { await load() } }) {
