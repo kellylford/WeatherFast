@@ -1,0 +1,25 @@
+***New: Radar (experimental, off by default)***
+WeatherFast now has animated weather radar for U.S. cities. It's off by default while we test it. To turn it on, go to Settings → Developer Settings and turn on Radar Loop. Then open any U.S. city, open the Actions menu (the "…" button) and choose Radar.
+
+There are two kinds of radar, picked with the switch at the top of the Radar screen:
+
+NWS: The National Weather Service's own radar image from the radar station nearest your city. It has the newest picture, a new frame every 2 minutes covering the last 18 minutes, and it works in Alaska, Hawaii and Puerto Rico too. The picture is centred on the radar station, so your city may be off to one side.
+
+Composite: Every radar in the contiguous U.S. blended together and drawn on a map centred on your city, with your city marked in the middle. It has 12 frames covering the last 55 minutes, which makes it easier to see where weather is heading. Use the Map area switch to choose Local (about 140 miles across) or Regional (about 400 miles across).
+
+The loop plays on its own. To step through time, swipe left or right on the picture, as you would in Photos, or use Previous frame and Next frame. Pinch to zoom. The "i" button opens About Radar, which explains both options, when to choose each, and who provides the radar.
+
+VoiceOver: Each frame is a real image, so Intelligent Image Description in iOS 27 can describe it. While VoiceOver is on, the loop stays paused so the picture doesn't change while you're reading it. Swipe left or right with three fingers to move between frames, as you would in Photos, or use Previous frame and Next frame, to hear how the weather moves over time. A description only covers what's in the picture, so if you want to hear about weather farther away, choose Composite and then Regional.
+
+***What I'd like feedback on***
+- Which radar option you found more useful, and why.
+- VoiceOver users: do the Intelligent Image Description descriptions of the radar tell you what you want to know? Do Local and Regional work differently for you?
+- Anything that looks wrong: radar that doesn't match the weather outside, blank areas, missing frames, or slow loading.
+- Any U.S. city where the radar won't load.
+
+***Fixed***
+Daylight change: The note showing how much daylight you gained or lost since yesterday wasn't appearing. It shows now.
+
+Forecast banner: "Couldn't load the full forecast" could appear over a forecast that had loaded fine, after a background refresh hiccup. This has been addressed.
+
+Air quality credits: Settings → Data Sources & Attribution now credits AirNow (U.S. EPA) and the Copernicus Atmosphere Monitoring Service for air quality data.

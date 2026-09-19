@@ -220,14 +220,29 @@ struct RadarLoopView: View {
                                     width: lastOffset.width + value.translation.width,
                                     height: lastOffset.height + value.translation.height)
                             }
-                            .onEnded { _ in lastOffset = offset }
+                            .onEnded { value in
+                                // Zoomed in, a drag pans. At normal size it
+                                // pages through frames, like Photos.
+                                if scale > 1 { lastOffset = offset } else { swipe(value.translation, loop) }
+                            }
                     )
                 )
                 .onTapGesture(count: 2) { resetZoom() }
                 // One image element so VoiceOver's Image Explorer can describe it.
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(imageLabel(loop))
+                .accessibilityHint("Swipe left or right with three fingers to move to the next or previous frame.")
                 .accessibilityAddTraits(.isImage)
+                // VoiceOver's three-finger swipe pages frames the way it pages
+                // photos. The edge is the one being scrolled toward, so a swipe
+                // left arrives as .trailing: later in time.
+                .accessibilityScrollAction { edge in
+                    switch edge {
+                    case .trailing: page(1, loop)
+                    case .leading:  page(-1, loop)
+                    default:        break
+                    }
+                }
         }
     }
 
@@ -427,6 +442,31 @@ struct RadarLoopView: View {
         AccessibilityNotification.Announcement(frameCaption(loop)).post()
     }
 
+    /// A clear horizontal swipe on the unzoomed picture: left for the next
+    /// (later) frame, right for the previous one.
+    private func swipe(_ translation: CGSize, _ loop: RadarLoop) {
+        guard abs(translation.width) > 50,
+              abs(translation.width) > abs(translation.height) * 1.5 else { return }
+        page(translation.width < 0 ? 1 : -1, loop)
+    }
+
+    /// Swipe and three-finger-swipe paging. Like the buttons it stops
+    /// playback, but it reports with a page-scrolled notification, which is
+    /// what VoiceOver speaks after a three-finger swipe, and at either end it
+    /// says there is nothing further instead of doing nothing silently.
+    private func page(_ delta: Int, _ loop: RadarLoop) {
+        isPlaying = false
+        let next = index + delta
+        guard next >= 0, next < loop.frames.count else {
+            let end = delta > 0 ? "No later frames. " : "No earlier frames. "
+            UIAccessibility.post(notification: .pageScrolled, argument: end + frameCaption(loop))
+            return
+        }
+        index = next
+        resetZoom()
+        UIAccessibility.post(notification: .pageScrolled, argument: frameCaption(loop))
+    }
+
     private func advanceIfPlaying() {
         guard isPlaying, let loop, loop.frames.count > 1 else { return }
         if holdTicks > 0 { holdTicks -= 1; return }
@@ -511,7 +551,7 @@ struct RadarInfoView: View {
                 }
 
                 Section(header: Text("Radar and VoiceOver")) {
-                    Text("Both images work with VoiceOver's Intelligent Image Description feature. While VoiceOver is on, the loop stays paused so the picture does not change while you are reading it. Use Previous frame and Next frame to move through time one frame at a time.")
+                    Text("Both images work with VoiceOver's Intelligent Image Description feature. While VoiceOver is on, the loop stays paused so the picture does not change while you are reading it. To move through time one frame at a time, swipe left or right on the picture with three fingers, as you would in Photos, or use Previous frame and Next frame.")
                     Text("A description covers only what is in the picture. If it mentions only places near you, that is because the picture shows only the area around your city. For a wider description, choose Composite and then Regional.")
                 }
 
