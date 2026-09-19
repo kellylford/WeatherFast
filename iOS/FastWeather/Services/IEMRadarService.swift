@@ -31,6 +31,49 @@ import Foundation
 import UIKit
 import MapKit
 
+/// How much of the country the Composite picture shows. The mosaic itself
+/// covers the whole contiguous US; this is the square cut out around the city.
+enum RadarArea: String, CaseIterable, Identifiable {
+    case local
+    case regional
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .local:    return "Local"
+        case .regional: return "Regional"
+        }
+    }
+
+    /// Degrees of latitude from the top of the picture to the bottom.
+    /// A degree of latitude is about 111 km anywhere on Earth, so this fixes
+    /// the north-south distance; MapKit then widens longitude to keep it square.
+    var latitudeSpan: Double {
+        switch self {
+        case .local:    return 2.0   // ~222 km / ~138 mi
+        case .regional: return 5.8   // ~644 km / ~400 mi
+        }
+    }
+
+    var kilometresAcross: Double { latitudeSpan * 111.0 }
+
+    /// "about 140 miles", rounded to the nearest 10 in the user's unit.
+    func across(_ unit: DistanceUnit) -> String {
+        Self.phrase(kilometresAcross, unit)
+    }
+
+    /// Distance from the city to each edge: half the width.
+    func toEachEdge(_ unit: DistanceUnit) -> String {
+        Self.phrase(kilometresAcross / 2, unit)
+    }
+
+    private static func phrase(_ km: Double, _ unit: DistanceUnit) -> String {
+        let value = Int((unit.convert(km) / 10).rounded()) * 10
+        return "about \(value) " + (unit == .miles ? "miles" : "kilometres")
+    }
+}
+
 final class IEMRadarService {
     static let shared = IEMRadarService()
     private init() {}
@@ -42,15 +85,12 @@ final class IEMRadarService {
     /// twelve frames covering 55 minutes. Oldest first, to match RIDGE.
     private static let minutesAgo: [Int] = [55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0]
 
-    /// Degrees of latitude/longitude across the rendered map.
-    private static let spanDegrees: Double = 2.0
-
     /// Rendered frame size in points.
     private static let imageSize: CGFloat = 900
 
     // MARK: - Public
 
-    func loadLoop(for city: City) async -> RadarLoopResult {
+    func loadLoop(for city: City, area: RadarArea = .local) async -> RadarLoopResult {
         guard Self.isInCONUS(lat: city.latitude, lon: city.longitude) else {
             return .noCoverage(
                 "\(city.name) is outside the NEXRAD composite. This radar layer covers "
@@ -61,10 +101,9 @@ final class IEMRadarService {
         // The basemap never changes between frames, so snapshot it once and
         // reuse it. Twelve MapKit snapshots would be twelve times the work for
         // twelve identical maps.
-        let region = MKCoordinateRegion(
+        let region = Self.squareRegion(
             center: CLLocationCoordinate2D(latitude: city.latitude, longitude: city.longitude),
-            span: MKCoordinateSpan(latitudeDelta: Self.spanDegrees,
-                                   longitudeDelta: Self.spanDegrees))
+            latitudeSpan: area.latitudeSpan)
 
         guard let snapshot = await makeBasemap(region: region) else {
             return .failure("Could not render the map for \(city.name).")
@@ -128,7 +167,7 @@ final class IEMRadarService {
                            minutesAgo: Int,
                            cityName: String) async -> UIImage? {
         let base = snapshot.image
-        let z = Self.chooseZoom(spanDegrees: Self.spanDegrees)
+        let z = Self.chooseZoom(longitudeSpan: region.span.longitudeDelta)
         let tiles = await fetchTiles(snapshot: snapshot, region: region,
                                      minutesAgo: minutesAgo, zoom: z)
         guard !tiles.isEmpty else { return nil }
@@ -144,6 +183,7 @@ final class IEMRadarService {
             }
 
             Self.drawCityMarker(named: cityName, size: base.size)
+            Self.drawMapAttribution(size: base.size)
         }
     }
 
@@ -152,10 +192,15 @@ final class IEMRadarService {
                             region: MKCoordinateRegion,
                             minutesAgo: Int,
                             zoom z: Int) async -> [(UIImage, CGRect)] {
-        let west = region.center.longitude - region.span.longitudeDelta / 2
-        let east = region.center.longitude + region.span.longitudeDelta / 2
-        let north = region.center.latitude + region.span.latitudeDelta / 2
-        let south = region.center.latitude - region.span.latitudeDelta / 2
+        // Pad by a tenth on every side. Tiles snap outward to whole tiles
+        // anyway, so this rarely costs an extra request, and it guarantees no
+        // bare strip at the edge where MapKit's fit differs slightly from ours.
+        let padLon = region.span.longitudeDelta * 0.1
+        let padLat = region.span.latitudeDelta * 0.1
+        let west = region.center.longitude - region.span.longitudeDelta / 2 - padLon
+        let east = region.center.longitude + region.span.longitudeDelta / 2 + padLon
+        let north = min(region.center.latitude + region.span.latitudeDelta / 2 + padLat, 85)
+        let south = max(region.center.latitude - region.span.latitudeDelta / 2 - padLat, -85)
 
         let x0 = Self.tileX(west, z), x1 = Self.tileX(east, z)
         let y0 = Self.tileY(north, z), y1 = Self.tileY(south, z)
@@ -232,15 +277,57 @@ final class IEMRadarService {
                   withAttributes: attributes)
     }
 
+    /// Credit Apple on the image itself. MKMapView draws its own attribution,
+    /// but an MKMapSnapshotter image comes back bare, and Apple's developer
+    /// terms treat snapshots as part of the Apple Maps Service. The full legal
+    /// link lives in About Radar; this keeps the credit on the picture too.
+    private static func drawMapAttribution(size: CGSize) {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 20, weight: .medium),
+            .foregroundColor: UIColor.black,
+        ]
+        let text = "Map: Apple Maps" as NSString
+        let textSize = text.size(withAttributes: attributes)
+        let pad: CGFloat = 6
+        let origin = CGPoint(x: 10, y: size.height - textSize.height - pad * 2 - 10)
+        let box = CGRect(x: origin.x, y: origin.y,
+                         width: textSize.width + pad * 2, height: textSize.height + pad * 2)
+        UIColor.white.withAlphaComponent(0.8).setFill()
+        UIBezierPath(roundedRect: box, cornerRadius: 5).fill()
+        text.draw(at: CGPoint(x: box.minX + pad, y: box.minY + pad), withAttributes: attributes)
+    }
+
     // MARK: - Web Mercator tile maths
 
-    /// IEM serves this layer to z12; past that it just upscales.
-    private static func chooseZoom(spanDegrees: Double) -> Int {
+    /// The most detailed zoom at which the picture is at most three tiles
+    /// wide — about 9 to 16 tiles a frame. Local lands on z8 and Regional on
+    /// z7. z8 pixels are already about the size of the mosaic's own ~0.005°
+    /// cells, so going finer would only fetch more tiles of upscaled data.
+    private static func chooseZoom(longitudeSpan: Double) -> Int {
         for z in stride(from: 12, through: 4, by: -1) {
-            let tilesAcross = spanDegrees / (360.0 / pow(2.0, Double(z)))
-            if tilesAcross <= 5 { return z }
+            let tilesAcross = longitudeSpan / (360.0 / pow(2.0, Double(z)))
+            if tilesAcross <= 3 { return z }
         }
-        return 6
+        return 4
+    }
+
+    /// A region whose shape matches the square image. MapKit fits whatever it
+    /// is given to the image's aspect ratio, and in Web Mercator a degree of
+    /// latitude is drawn taller than a degree of longitude — so asking for
+    /// equal degrees each way comes back far wider than asked (2.7° of
+    /// longitude instead of 2° at Madison). The radar tiles were fetched for
+    /// the region as asked, which could leave a strip with no radar at the
+    /// left or right edge: it looked like clear weather and was described as
+    /// such. Working out the true width up front keeps map and radar in step.
+    private static func squareRegion(center: CLLocationCoordinate2D,
+                                     latitudeSpan: Double) -> MKCoordinateRegion {
+        func mercatorY(_ lat: Double) -> Double { log(tan(.pi / 4 + lat * .pi / 360)) }
+        let north = center.latitude + latitudeSpan / 2
+        let south = center.latitude - latitudeSpan / 2
+        let longitudeSpan = (mercatorY(north) - mercatorY(south)) * 180 / .pi
+        return MKCoordinateRegion(
+            center: center,
+            span: MKCoordinateSpan(latitudeDelta: latitudeSpan, longitudeDelta: longitudeSpan))
     }
 
     private static func tileX(_ lon: Double, _ z: Int) -> Int {

@@ -41,7 +41,7 @@ enum RadarSource: String, CaseIterable, Identifiable {
     var summary: String {
         switch self {
         case .ridge: return "10 frames · 2 min apart · 18 minutes · one station"
-        case .iem:   return "12 frames · 5 min apart · 55 minutes · centred on your city"
+        case .iem:   return "12 frames · 5 min apart · 55 minutes"
         }
     }
 
@@ -60,11 +60,19 @@ enum RadarSource: String, CaseIterable, Identifiable {
 struct RadarLoopView: View {
     let city: City
 
+    @EnvironmentObject private var settingsManager: SettingsManager
+
     @State private var source: RadarSource = .ridge
+    /// Remembered between visits: someone who wants the wide view usually
+    /// wants it every time.
+    @AppStorage("radarCompositeArea") private var area: RadarArea = .local
+    /// The area of the loop on screen, which lags `area` while a reload runs.
+    @State private var loadedArea: RadarArea = .local
     @State private var loop: RadarLoop?
     @State private var index: Int = 0
     @State private var isLoading = true
     @State private var message: String?
+    @State private var showingInfo = false
 
     @State private var isPlaying = false
     @State private var holdTicks = 0
@@ -99,7 +107,13 @@ struct RadarLoopView: View {
         .navigationTitle("Radar")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button(action: { showingInfo = true }) {
+                    Image(systemName: "info.circle")
+                }
+                .accessibilityLabel("About radar")
+                .accessibilityHint("Explains the NWS and Composite radar options, when to choose each, and who provides the radar.")
+
                 Button(action: { Task { await load() } }) {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -107,8 +121,14 @@ struct RadarLoopView: View {
                 .accessibilityHint("Downloads the latest radar loop.")
             }
         }
+        .sheet(isPresented: $showingInfo) {
+            RadarInfoView(unit: unit)
+        }
         .task { await load() }
         .onChange(of: source) { _, _ in Task { await load() } }
+        .onChange(of: area) { _, _ in
+            if source == .iem { Task { await load() } }
+        }
         .onReceive(tick) { _ in advanceIfPlaying() }
         .onReceive(NotificationCenter.default.publisher(
             for: UIAccessibility.voiceOverStatusDidChangeNotification)) { _ in
@@ -131,14 +151,44 @@ struct RadarLoopView: View {
             .accessibilityHint("Switches between the National Weather Service station "
                              + "image and a multi-radar composite drawn on a map.")
 
-            Text(source.summary)
+            if source == .iem {
+                Picker("Map area", selection: $area) {
+                    ForEach(RadarArea.allCases) { a in
+                        Text(a.name).tag(a)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel("Map area")
+                .accessibilityHint("Local shows \(RadarArea.local.across(unit)) around your city. "
+                                 + "Regional shows \(RadarArea.regional.across(unit)), "
+                                 + "to see weather that is farther away.")
+            }
+
+            Text(captionText)
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
                 .accessibilityHidden(true)
         }
         .padding(.horizontal)
         .padding(.top, 8)
         .padding(.bottom, 4)
+    }
+
+    private var unit: DistanceUnit { settingsManager.settings.distanceUnit }
+
+    private var captionText: String {
+        switch source {
+        case .ridge:
+            return source.summary
+        case .iem:
+            return source.summary + "\n" + area.across(unit) + " across, centred on your city"
+        }
+    }
+
+    private func stationDistance(_ station: RadarLoopStation) -> String {
+        let value = Int(unit.convert(station.distanceKm).rounded())
+        return "\(value) " + (unit == .miles ? "miles" : "kilometres")
     }
 
     // MARK: - Image
@@ -187,12 +237,13 @@ struct RadarLoopView: View {
             : "frame \(index + 1) of \(loop.frames.count)"
 
         let origin = loop.station.map { "From the \($0.name) radar station. " }
-            ?? "A composite of every nearby radar, centred on \(city.name). "
+            ?? "A composite of every nearby radar, centred on \(city.name), "
+             + "\(loadedArea.across(unit)) across. "
 
         return "Weather radar near \(city.name), \(position), \(timePhrase(loop)). "
             + origin
             + "Each step is \(intervalPhrase(loop)); the loop covers \(spanPhrase(loop)). "
-            + "Use VoiceOver's image description to hear what this frame shows."
+            + "Use VoiceOver's Intelligent Image Description to hear what this frame shows."
     }
 
     // MARK: - Time wording
@@ -277,9 +328,9 @@ struct RadarLoopView: View {
 
             VStack(spacing: 3) {
                 if let station = loop.station {
-                    Text("\(station.name) station · \(Int(station.distanceKm.rounded())) km away")
+                    Text("\(station.name) station · \(stationDistance(station)) away")
                 } else {
-                    Text("\(loop.sourceName) · every radar in range")
+                    Text("\(loop.sourceName) · every radar in range · \(loadedArea.name.lowercased()) view")
                 }
                 Text("Frames \(intervalPhrase(loop)) apart · \(spanPhrase(loop)) of history")
                 Text(loop.attribution)
@@ -306,9 +357,10 @@ struct RadarLoopView: View {
         let origin: String
         if let station = loop.station {
             origin = "Source: \(station.name) NEXRAD station, "
-                   + "\(Int(station.distanceKm.rounded())) kilometres away."
+                   + "\(stationDistance(station)) away."
         } else {
-            origin = "Source: a composite of every NEXRAD radar in range."
+            origin = "Source: a composite of every NEXRAD radar in range, "
+                   + "\(loadedArea.name.lowercased()) view, \(loadedArea.across(unit)) across."
         }
         return origin
             + " Frames \(intervalPhrase(loop)) apart, covering \(spanPhrase(loop)). "
@@ -336,15 +388,17 @@ struct RadarLoopView: View {
         isLoading = true
         message = nil
         resetZoom()
+        let requestedArea = area
 
         let result: RadarLoopResult
         switch source {
         case .ridge: result = await RadarLoopService.shared.loadLoop(for: city)
-        case .iem:   result = await IEMRadarService.shared.loadLoop(for: city)
+        case .iem:   result = await IEMRadarService.shared.loadLoop(for: city, area: requestedArea)
         }
         switch result {
         case .success(let l):
             loop = l
+            loadedArea = requestedArea
             index = max(l.frames.count - 1, 0)   // open on the most recent frame
             // Animate for sighted users; never animate under VoiceOver.
             voiceOverRunning = UIAccessibility.isVoiceOverRunning
@@ -387,6 +441,157 @@ struct RadarLoopView: View {
         lastScale = 1
         offset = .zero
         lastOffset = .zero
+    }
+}
+
+// MARK: - About radar
+
+/// Explains the two radar sources and credits the providers. Lives here for
+/// now; the plan is to move this material into the user guide later.
+struct RadarInfoView: View {
+    let unit: DistanceUnit
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            List {
+                Section {
+                    Text("Weather Fast can show radar two ways: NWS and Composite. Both use the National Weather Service's NEXRAD radar network, but they show different areas and different amounts of time. Pick one with the switch at the top of the radar screen.")
+                    InfoPoints(title: "In short", points: [
+                        "NWS is the newest picture, from the one radar station nearest your city.",
+                        "Composite has a longer history, is centred on your city, and can widen to show a whole region.",
+                    ])
+                }
+
+                Section(header: Text("What area you see")) {
+                    Text("Every radar picture is a fixed image of one area. Zooming in makes part of it bigger, but you can't scroll to see more of the country. Anything outside the picture isn't part of it, and Intelligent Image Description can only describe what is in the picture.")
+                    InfoPoints(title: "NWS", points: [
+                        "The area around one radar station.",
+                        "The picture is centred on the station, not on your city, so your city may be off to one side.",
+                        "How far it reaches depends on the station.",
+                    ])
+                    InfoPoints(title: "Composite", points: [
+                        "A square centred on your city, with your city marked in the middle.",
+                        "Local: \(RadarArea.local.across(unit)) across, \(RadarArea.local.toEachEdge(unit)) from your city to each edge.",
+                        "Regional: \(RadarArea.regional.across(unit)) across, \(RadarArea.regional.toEachEdge(unit)) to each edge.",
+                        "Choose Local or Regional with the Map area switch, which appears when Composite is selected.",
+                    ])
+                    Text("The Composite radar data covers the whole contiguous United States, so Regional is how to see weather that is farther away, such as a line of storms coming from the next state.")
+                    Text("Areas no radar can reach, such as far out over the ocean or deep into Canada or Mexico, show no colour. That means there is no radar data, not that the sky is clear.")
+                }
+
+                Section(header: Text("NWS")) {
+                    Text("The National Weather Service's own radar image, exactly as it publishes it, with its own map, roads, county lines and legend. The NWS calls these RIDGE images.")
+                    Text("About 10 frames, a new one every 2 minutes, covering the last 18 minutes. Available in Alaska, Hawaii and Puerto Rico as well as the rest of the United States.")
+                    InfoPoints(title: "Choose NWS when", points: [
+                        "You want the most recent picture. A new frame every 2 minutes means less lag when a storm is close.",
+                        "You want the official National Weather Service image.",
+                        "You are in Alaska, Hawaii or Puerto Rico, where Composite has no coverage.",
+                    ])
+                    InfoPoints(title: "Keep in mind", points: [
+                        "One station can only see so far. Weather a long way from the station, or behind mountains, can be missed or look weaker than it is.",
+                        "18 minutes is a short window for judging where a storm is heading.",
+                    ])
+                }
+
+                Section(header: Text("Composite")) {
+                    Text("Every NEXRAD radar in the contiguous United States blended into one picture, called a mosaic. The Iowa Environmental Mesonet at Iowa State University builds the mosaic from National Weather Service data. Weather Fast draws your chosen area of it on an Apple map.")
+                    Text("12 frames, 5 minutes apart, covering the last 55 minutes.")
+                    InfoPoints(title: "Choose Composite when", points: [
+                        "You want to see where rain or storms are heading. Nearly an hour of history makes direction and speed much easier to judge.",
+                        "Your city sits between radar stations or near the edge of one station's range, where a single station's view is weakest.",
+                        "You want your city in the centre of the picture, which also helps VoiceOver's Intelligent Image Description relate what it describes to where you are.",
+                        "You want to look farther away. Choose Regional.",
+                    ])
+                    InfoPoints(title: "Keep in mind", points: [
+                        "Frames are 5 minutes apart, so the newest one can be a few minutes older than the NWS image.",
+                        "Regional shows more area in less detail. Small showers are easier to see in Local.",
+                        "Covers the contiguous United States only. For Alaska, Hawaii and Puerto Rico, use NWS.",
+                    ])
+                }
+
+                Section(header: Text("Radar and VoiceOver")) {
+                    Text("Both images work with VoiceOver's Intelligent Image Description feature. While VoiceOver is on, the loop stays paused so the picture does not change while you are reading it. Use Previous frame and Next frame to move through time one frame at a time.")
+                    Text("A description covers only what is in the picture. If it mentions only places near you, that is because the picture shows only the area around your city. For a wider description, choose Composite and then Regional.")
+                }
+
+                Section(header: Text("Credits"),
+                        footer: Text("Weather Fast is not affiliated with or endorsed by NOAA, the National Weather Service, or Iowa State University.")) {
+                    RadarCreditRow(
+                        name: "NOAA National Weather Service",
+                        detail: "Radar data from the NEXRAD network, and the NWS radar images. Public domain.",
+                        urlString: "https://radar.weather.gov")
+                    RadarCreditRow(
+                        name: "Iowa Environmental Mesonet, Iowa State University",
+                        detail: "The Composite radar mosaic, built from NWS NEXRAD data.",
+                        urlString: "https://mesonet.agron.iastate.edu")
+                    RadarCreditRow(
+                        name: "Apple Maps",
+                        detail: "The map under the Composite radar.",
+                        urlString: "https://www.apple.com/legal/internet-services/maps/terms-en.html")
+                }
+            }
+            .navigationTitle("About Radar")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .accessibilityHint("Closes About Radar and returns to the radar.")
+                }
+            }
+        }
+    }
+}
+
+/// A short titled list, read by VoiceOver as one element so the title and its
+/// points are heard together rather than as a scatter of fragments.
+private struct InfoPoints: View {
+    let title: String
+    let points: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            ForEach(points, id: \.self) { point in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("•").accessibilityHidden(true)
+                    Text(point)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title + ": " + points.joined(separator: " "))
+    }
+}
+
+/// One credited provider: name, what it supplies, and a link to it.
+private struct RadarCreditRow: View {
+    let name: String
+    let detail: String
+    let urlString: String
+
+    var body: some View {
+        Link(destination: URL(string: urlString)!) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(name)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Image(systemName: "arrow.up.right.square")
+                        .font(.caption)
+                        .accessibilityHidden(true)
+                }
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(name). \(detail)")
+        .accessibilityAddTraits(.isLink)
+        .accessibilityHint("Opens the \(name) website.")
     }
 }
 
