@@ -28,6 +28,7 @@ import Combine
 enum RadarSource: String, CaseIterable, Identifiable {
     case ridge
     case iem
+    case eccc
 
     var id: String { rawValue }
 
@@ -35,13 +36,18 @@ enum RadarSource: String, CaseIterable, Identifiable {
         switch self {
         case .ridge: return "NWS"
         case .iem:   return "Composite"
+        case .eccc:  return "Canada"
         }
     }
+
+    /// The two map-drawn sources; the ones with a Map area switch.
+    var isMapped: Bool { self != .ridge }
 
     var summary: String {
         switch self {
         case .ridge: return "10 frames · 2 min apart · 18 minutes · one station"
         case .iem:   return "12 frames · 5 min apart · 55 minutes"
+        case .eccc:  return "11 frames · 18 min apart · 3 hours"
         }
     }
 
@@ -53,6 +59,10 @@ enum RadarSource: String, CaseIterable, Identifiable {
         case .iem:
             return "Multi-radar composite on a map. Twelve frames, five minutes "
                  + "apart, covering fifty-five minutes, centred on your city."
+        case .eccc:
+            return "Environment and Climate Change Canada composite on a map, "
+                 + "covering Canada and the United States. Eleven frames, "
+                 + "eighteen minutes apart, covering three hours, centred on your city."
         }
     }
 }
@@ -147,7 +157,7 @@ struct RadarLoopView: View {
         .task { await load() }
         .onChange(of: source) { _, _ in Task { await load() } }
         .onChange(of: area) { _, _ in
-            if source == .iem { Task { await load() } }
+            if source.isMapped { Task { await load() } }
         }
         .onReceive(tick) { _ in advanceIfPlaying() }
         .onReceive(NotificationCenter.default.publisher(
@@ -168,10 +178,12 @@ struct RadarLoopView: View {
             }
             .pickerStyle(.segmented)
             .accessibilityLabel("Radar source")
-            .accessibilityHint("Switches between the National Weather Service station "
-                             + "image and a multi-radar composite drawn on a map.")
+            .accessibilityHint("Switches between the National Weather Service station image, "
+                             + "a United States composite drawn on a map, and Environment "
+                             + "and Climate Change Canada's composite, which covers Canada "
+                             + "and the United States with three hours of history.")
 
-            if source == .iem {
+            if source.isMapped {
                 Picker("Map area", selection: $area) {
                     ForEach(RadarArea.allCases) { a in
                         Text(a.name).tag(a)
@@ -201,7 +213,7 @@ struct RadarLoopView: View {
         switch source {
         case .ridge:
             return source.summary
-        case .iem:
+        case .iem, .eccc:
             return source.summary + "\n" + area.across(unit) + " across, centred on your city"
         }
     }
@@ -457,6 +469,7 @@ struct RadarLoopView: View {
                 result = await RadarLoopService.shared.loadLoop(for: city)
             }
         case .iem:   result = await IEMRadarService.shared.loadLoop(for: city, area: requestedArea)
+        case .eccc:  result = await ECCCRadarService.shared.loadLoop(for: city, area: requestedArea)
         }
         switch result {
         case .success(let l):
@@ -558,10 +571,11 @@ struct RadarInfoView: View {
         NavigationView {
             List {
                 Section {
-                    Text("Weather Fast can show radar two ways: NWS and Composite. Both use the National Weather Service's NEXRAD radar network, but they show different areas and different amounts of time. Pick one with the switch at the top of the radar screen.")
+                    Text("Weather Fast can show radar three ways: NWS, Composite and Canada. They show different areas and different amounts of time. Pick one with the switch at the top of the radar screen.")
                     InfoPoints(title: "In short", points: [
                         "NWS is the newest picture, from the one radar station nearest your city.",
                         "Composite has a longer history, is centred on your city, and can widen to show a whole region.",
+                        "Canada reaches back three hours and is the only one that works in Canada.",
                     ])
                 }
 
@@ -572,14 +586,14 @@ struct RadarInfoView: View {
                         "The picture is centred on the station, not on your city, so your city may be off to one side.",
                         "How far it reaches depends on the station.",
                     ])
-                    InfoPoints(title: "Composite", points: [
+                    InfoPoints(title: "Composite and Canada", points: [
                         "A square centred on your city, with your city marked in the middle.",
                         "Local: \(RadarArea.local.across(unit)) across, \(RadarArea.local.toEachEdge(unit)) from your city to each edge.",
                         "Regional: \(RadarArea.regional.across(unit)) across, \(RadarArea.regional.toEachEdge(unit)) to each edge.",
                         "Choose Local or Regional with the Map area switch, which appears when Composite is selected.",
                     ])
-                    Text("The Composite radar data covers the whole contiguous United States, so Regional is how to see weather that is farther away, such as a line of storms coming from the next state.")
-                    Text("Areas no radar can reach, such as far out over the ocean or deep into Canada or Mexico, show no colour. That means there is no radar data, not that the sky is clear.")
+                    Text("Both of those cover far more ground than the square you are shown, so Regional is how to see weather that is farther away, such as a line of storms coming from the next state.")
+                    Text("Areas no radar can reach, such as far out over the ocean or deep into Mexico, show no colour. That means there is no radar data, not that the sky is clear. On Canada, those areas are shaded grey so you can tell the difference at a glance.")
                 }
 
                 Section(header: Text("NWS")) {
@@ -612,13 +626,28 @@ struct RadarInfoView: View {
                     ])
                 }
 
+                Section(header: Text("Canada")) {
+                    Text("Environment and Climate Change Canada blends the Canadian and American radars — up to 180 of them — into one picture, rebuilt every 6 minutes. Weather Fast draws your chosen area of it on an Apple map, the same way it draws Composite.")
+                    Text("11 frames, 18 minutes apart, covering the last 3 hours.")
+                    InfoPoints(title: "Choose Canada when", points: [
+                        "You are in Canada. This is the only source here that covers it.",
+                        "You want to see where weather came from, not just where it is. Three hours shows a storm's whole afternoon.",
+                        "You want to know where the radar can't see. Areas out of radar range are shaded, rather than just being blank.",
+                        "You want snow shown as snow. Rain and snow are drawn separately.",
+                    ])
+                    InfoPoints(title: "Keep in mind", points: [
+                        "Frames are 18 minutes apart, so this is the coarsest view of the three in time, and the newest frame can be a few minutes older than the others.",
+                        "It takes longer to load than the others, since each frame is fetched separately.",
+                    ])
+                }
+
                 Section(header: Text("Radar and VoiceOver")) {
                     Text("Both images work with VoiceOver's Intelligent Image Description feature. While VoiceOver is on, the loop stays paused so the picture does not change while you are reading it. To move through time one frame at a time, swipe left or right on the picture with three fingers, as you would in Photos, or use Previous frame and Next frame.")
                     Text("A description covers only what is in the picture. If it mentions only places near you, that is because the picture shows only the area around your city. For a wider description, choose Composite and then Regional.")
                 }
 
                 Section(header: Text("Credits"),
-                        footer: Text("Weather Fast is not affiliated with or endorsed by NOAA, the National Weather Service, or Iowa State University.")) {
+                        footer: Text("Weather Fast is not affiliated with or endorsed by NOAA, the National Weather Service, Iowa State University, or Environment and Climate Change Canada.")) {
                     RadarCreditRow(
                         name: "NOAA National Weather Service",
                         detail: "Radar data from the NEXRAD network, and the NWS radar images. Public domain.",
@@ -627,6 +656,10 @@ struct RadarInfoView: View {
                         name: "Iowa Environmental Mesonet, Iowa State University",
                         detail: "The Composite radar mosaic, built from NWS NEXRAD data.",
                         urlString: "https://mesonet.agron.iastate.edu")
+                    RadarCreditRow(
+                        name: "Environment and Climate Change Canada",
+                        detail: "The Canada composite, covering Canada and the United States, from the Meteorological Service of Canada. Contains information licensed under the Open Government Licence – Canada.",
+                        urlString: "https://weather.gc.ca")
                     RadarCreditRow(
                         name: "Apple Maps",
                         detail: "The map under the Composite radar.",

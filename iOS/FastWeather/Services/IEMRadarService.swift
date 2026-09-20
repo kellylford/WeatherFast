@@ -86,9 +86,7 @@ final class IEMRadarService {
     private static let minutesAgo: [Int] = [55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0]
 
     /// Rendered frame size in points.
-    private static let imageSize: CGFloat = 900
-
-    // MARK: - Public
+        // MARK: - Public
 
     func loadLoop(for city: City, area: RadarArea = .local) async -> RadarLoopResult {
         guard Self.isInCONUS(lat: city.latitude, lon: city.longitude) else {
@@ -101,11 +99,11 @@ final class IEMRadarService {
         // The basemap never changes between frames, so snapshot it once and
         // reuse it. Twelve MapKit snapshots would be twelve times the work for
         // twelve identical maps.
-        let region = Self.squareRegion(
+        let region = RadarMapCompositor.squareRegion(
             center: CLLocationCoordinate2D(latitude: city.latitude, longitude: city.longitude),
             latitudeSpan: area.latitudeSpan)
 
-        guard let snapshot = await makeBasemap(region: region) else {
+        guard let snapshot = await RadarMapCompositor.makeBasemap(region: region) else {
             return .failure("Could not render the map for \(city.name).")
         }
 
@@ -139,26 +137,6 @@ final class IEMRadarService {
 
     // MARK: - Basemap
 
-    @MainActor
-    private func makeBasemap(region: MKCoordinateRegion) async -> MKMapSnapshotter.Snapshot? {
-        let options = MKMapSnapshotter.Options()
-        options.region = region
-        options.size = CGSize(width: Self.imageSize, height: Self.imageSize)
-        options.pointOfInterestFilter = .excludingAll
-        options.mapType = .mutedStandard
-        // Force light. The reflectivity palette has to be the loudest thing on
-        // screen, and a dark basemap buries the greens and blues.
-        options.traitCollection = UITraitCollection(userInterfaceStyle: .light)
-
-        return await withCheckedContinuation { continuation in
-            MKMapSnapshotter(options: options).start { snapshot, error in
-                if let error {
-                    AppLogger.network.error("IEM basemap snapshot failed: \(error.localizedDescription)")
-                }
-                continuation.resume(returning: snapshot)
-            }
-        }
-    }
 
     // MARK: - Compositing
 
@@ -182,8 +160,8 @@ final class IEMRadarService {
                 tile.draw(in: rect, blendMode: .normal, alpha: 0.85)
             }
 
-            Self.drawCityMarker(named: cityName, size: base.size)
-            Self.drawMapAttribution(size: base.size)
+            RadarMapCompositor.drawCityMarker(named: cityName, size: base.size)
+            RadarMapCompositor.drawMapAttribution(size: base.size)
         }
     }
 
@@ -253,49 +231,11 @@ final class IEMRadarService {
 
     /// Put the city on the map. Nothing can describe a place that isn't drawn,
     /// and a composite has no built-in "you are here".
-    private static func drawCityMarker(named name: String, size: CGSize) {
-        let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        let radius: CGFloat = 11
-
-        let dot = UIBezierPath(arcCenter: center, radius: radius,
-                               startAngle: 0, endAngle: .pi * 2, clockwise: true)
-        UIColor.black.setFill(); dot.fill()
-        let inner = UIBezierPath(arcCenter: center, radius: radius - 4,
-                                 startAngle: 0, endAngle: .pi * 2, clockwise: true)
-        UIColor.white.setFill(); inner.fill()
-
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 30, weight: .semibold),
-            .foregroundColor: UIColor.black,
-            .strokeColor: UIColor.white,
-            .strokeWidth: -4.0,
-        ]
-        let text = name as NSString
-        let textSize = text.size(withAttributes: attributes)
-        text.draw(at: CGPoint(x: center.x - textSize.width / 2,
-                              y: center.y - radius - textSize.height - 6),
-                  withAttributes: attributes)
-    }
 
     /// Credit Apple on the image itself. MKMapView draws its own attribution,
     /// but an MKMapSnapshotter image comes back bare, and Apple's developer
     /// terms treat snapshots as part of the Apple Maps Service. The full legal
     /// link lives in About Radar; this keeps the credit on the picture too.
-    private static func drawMapAttribution(size: CGSize) {
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 20, weight: .medium),
-            .foregroundColor: UIColor.black,
-        ]
-        let text = "Map: Apple Maps" as NSString
-        let textSize = text.size(withAttributes: attributes)
-        let pad: CGFloat = 6
-        let origin = CGPoint(x: 10, y: size.height - textSize.height - pad * 2 - 10)
-        let box = CGRect(x: origin.x, y: origin.y,
-                         width: textSize.width + pad * 2, height: textSize.height + pad * 2)
-        UIColor.white.withAlphaComponent(0.8).setFill()
-        UIBezierPath(roundedRect: box, cornerRadius: 5).fill()
-        text.draw(at: CGPoint(x: box.minX + pad, y: box.minY + pad), withAttributes: attributes)
-    }
 
     // MARK: - Web Mercator tile maths
 
@@ -319,16 +259,6 @@ final class IEMRadarService {
     /// the region as asked, which could leave a strip with no radar at the
     /// left or right edge: it looked like clear weather and was described as
     /// such. Working out the true width up front keeps map and radar in step.
-    private static func squareRegion(center: CLLocationCoordinate2D,
-                                     latitudeSpan: Double) -> MKCoordinateRegion {
-        func mercatorY(_ lat: Double) -> Double { log(tan(.pi / 4 + lat * .pi / 360)) }
-        let north = center.latitude + latitudeSpan / 2
-        let south = center.latitude - latitudeSpan / 2
-        let longitudeSpan = (mercatorY(north) - mercatorY(south)) * 180 / .pi
-        return MKCoordinateRegion(
-            center: center,
-            span: MKCoordinateSpan(latitudeDelta: latitudeSpan, longitudeDelta: longitudeSpan))
-    }
 
     private static func tileX(_ lon: Double, _ z: Int) -> Int {
         Int(floor((lon + 180.0) / 360.0 * pow(2.0, Double(z))))
