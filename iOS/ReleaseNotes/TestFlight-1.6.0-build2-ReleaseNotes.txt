@@ -1,0 +1,42 @@
+***Turn the radar on first***
+Radar is off when you install this build, so you won't see it until you switch it on. Here's how:
+
+1. Go to Settings, scroll to the bottom, and choose Developer Settings.
+2. Turn on Radar Loop.
+3. Go back to your cities and open any U.S. city.
+4. Open the Actions menu (the "…" button) and choose Radar.
+
+If you can't find radar anywhere in the app, it's almost certainly because step 2 hasn't been done.
+
+***New in this build: Browse Radar Stations***
+You can now go straight to any National Weather Service radar, instead of only getting the one nearest a city you've saved. In the Browse tab there's a Radar section with Browse Radar Stations, listing all 159 NEXRAD sites.
+
+Each station shows its name and state, call sign, nearest town, and how far it is from you. A station that hasn't sent data in half an hour is marked "No recent data", so you don't open a radar that's down.
+
+Sort the list by name, by state, by nearest to you, or geographically (north to south, east to west, and the reverse of each). Your choice is remembered. Search matches the station name, its call sign, the state spelled out or abbreviated, and the nearby town — so Wisconsin, KMKX and Sullivan all find the Milwaukee radar.
+
+Opening a station shows its radar loop. From there, a new "Weather for This Station" button opens the full forecast for that location, the same as opening a city from a state list. That button also appears on the radar you reach from one of your own cities, named after that city.
+
+***Radar, if you haven't seen it yet***
+There are two kinds of radar, picked with the switch at the top of the Radar screen:
+
+NWS: The National Weather Service's own radar image from the station nearest your city — the newest picture, a new frame every 2 minutes covering the last 18 minutes. It works in Alaska, Hawaii and Puerto Rico too. It's centred on the station, so your city may be off to one side.
+
+Composite: Every radar in the contiguous U.S. blended together on a map centred on your city, with your city marked. 12 frames covering the last 55 minutes, which makes it easier to see where weather is heading. The Map area switch chooses Local (about 140 miles across) or Regional (about 400 miles).
+
+The loop plays on its own. To step through time, swipe left or right on the picture, as you would in Photos, or use Previous frame and Next frame. Pinch to zoom. The About Radar button explains both options, when to choose each, and who provides the radar.
+
+VoiceOver: Each frame is a real image, so Intelligent Image Description in iOS 27 can describe it. While VoiceOver is on, the loop stays paused so the picture doesn't change while you're reading it. Swipe left or right with three fingers to move between frames, as you would in Photos, or use Previous frame and Next frame, to hear how the weather moves over time. A description only covers what's in the picture, so if you want to hear about weather farther away, choose Composite and then Regional.
+
+***What I'd like feedback on***
+- Is Browse Radar Stations useful, and is the list sorted and described the way you'd want?
+- Which radar option you found more useful, NWS or Composite, and why.
+- VoiceOver users: do the Intelligent Image Description descriptions of the radar tell you what you want to know? Do Local and Regional work differently for you?
+- Anything wrong: radar that doesn't match the weather outside, blank areas, missing frames, slow loading, or a city or station whose radar won't load.
+
+***Fixed in 1.6.0***
+Daylight change: The note showing how much daylight you gained or lost since yesterday wasn't appearing. It shows now.
+
+Forecast banner: "Couldn't load the full forecast" could appear over a forecast that had loaded fine, after a background refresh hiccup. This has been addressed.
+
+Air quality credits: Settings → Data Sources & Attribution now credits AirNow (U.S. EPA) and the Copernicus Atmosphere Monitoring Service for air quality data.
