@@ -19,11 +19,13 @@ import Foundation
 import UIKit
 import ImageIO
 
-/// A NEXRAD radar station near a city.
+/// A NEXRAD radar station. `distanceKm` is how far it is from the city that
+/// asked for it, and nil when the station was chosen directly by browsing —
+/// there is no city to be far from.
 struct RadarLoopStation {
     let id: String
     let name: String
-    let distanceKm: Double
+    let distanceKm: Double?
 }
 
 /// A fetched radar loop: the frames plus where they came from.
@@ -92,19 +94,30 @@ final class RadarLoopService {
 
     // MARK: - Public
 
+    /// A station picked directly, by browsing rather than by proximity, so
+    /// there is no coverage test to make: the user asked for this radar.
+    func loadLoop(forStation station: RadarStationInfo) async -> RadarLoopResult {
+        await loadLoop(from: RadarLoopStation(id: station.id, name: station.name, distanceKm: nil))
+    }
+
     func loadLoop(for city: City) async -> RadarLoopResult {
         guard let station = await nearestStation(lat: city.latitude, lon: city.longitude) else {
             return .failure("Could not reach the National Weather Service station list.")
         }
 
-        guard station.distanceKm <= Self.maxUsefulDistanceKm else {
+        guard let distance = station.distanceKm, distance <= Self.maxUsefulDistanceKm else {
             return .noCoverage(
                 "\(city.name) is outside NEXRAD radar coverage. The nearest station, "
-                + "\(station.name), is \(Int(station.distanceKm.rounded())) km away — "
+                + "\(station.name), is \(Int((station.distanceKm ?? 0).rounded())) km away — "
                 + "too far for this city to appear on its radar image. "
                 + "NEXRAD covers the United States only.")
         }
 
+        return await loadLoop(from: station)
+    }
+
+    /// Shared tail of both entry points: fetch the station's loop and time it.
+    private func loadLoop(from station: RadarLoopStation) async -> RadarLoopResult {
         guard let (frames, newestAt) = await downloadLoopFrames(stationId: station.id),
               !frames.isEmpty else {
             return .failure("Could not download the radar loop for station \(station.id).")

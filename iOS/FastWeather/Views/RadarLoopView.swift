@@ -59,6 +59,26 @@ enum RadarSource: String, CaseIterable, Identifiable {
 
 struct RadarLoopView: View {
     let city: City
+    /// Set when the user picked this radar from the station browser rather
+    /// than opening a city. The NWS loop then comes from this exact station
+    /// instead of whichever one happens to be nearest.
+    var station: RadarStationInfo? = nil
+
+    init(city: City) {
+        self.city = city
+        self.station = nil
+    }
+
+    /// Browsing straight to a station: the composite still needs somewhere to
+    /// centre, so the station's own position stands in for a city.
+    init(station: RadarStationInfo) {
+        self.station = station
+        self.city = City(name: station.name,
+                         state: station.stateCode.isEmpty ? nil : station.stateCode,
+                         country: "United States",
+                         latitude: station.latitude,
+                         longitude: station.longitude)
+    }
 
     @EnvironmentObject private var settingsManager: SettingsManager
 
@@ -104,7 +124,7 @@ struct RadarLoopView: View {
                 controls(loop)
             }
         }
-        .navigationTitle("Radar")
+        .navigationTitle(station.map { "\($0.displayName) Radar" } ?? "Radar")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -186,8 +206,9 @@ struct RadarLoopView: View {
         }
     }
 
-    private func stationDistance(_ station: RadarLoopStation) -> String {
-        let value = Int(unit.convert(station.distanceKm).rounded())
+    private func stationDistance(_ station: RadarLoopStation) -> String? {
+        guard let km = station.distanceKm else { return nil }
+        let value = Int(unit.convert(km).rounded())
         return "\(value) " + (unit == .miles ? "miles" : "kilometres")
     }
 
@@ -341,9 +362,15 @@ struct RadarLoopView: View {
                 .accessibilityHint("Steps forward one radar frame, later in time.")
             }
 
+            weatherLink
+
             VStack(spacing: 3) {
                 if let station = loop.station {
-                    Text("\(station.name) station · \(stationDistance(station)) away")
+                    if let away = stationDistance(station) {
+                        Text("\(station.name) station · \(away) away")
+                    } else {
+                        Text("\(station.name) station · \(station.id)")
+                    }
                 } else {
                     Text("\(loop.sourceName) · every radar in range · \(loadedArea.name.lowercased()) view")
                 }
@@ -359,6 +386,21 @@ struct RadarLoopView: View {
         .padding()
     }
 
+    /// The radar answers "what is moving"; this answers "what is it like
+    /// there". From the station browser it is the only route to a forecast
+    /// for that place, since the station was never a saved city.
+    private var weatherLink: some View {
+        NavigationLink {
+            RadarWeatherDestination(city: city)
+        } label: {
+            Label(station == nil ? "Weather for \(city.name)" : "Weather for This Station",
+                  systemImage: "thermometer.medium")
+        }
+        .accessibilityHint(station == nil
+            ? "Opens the full forecast for \(city.displayName)."
+            : "Opens the full forecast for the area around the \(city.displayName) radar station.")
+    }
+
     private func frameCaption(_ loop: RadarLoop) -> String {
         let time = frameTime(loop).map { Self.clock.string(from: $0) } ?? ""
         let base = "Frame \(index + 1) of \(loop.frames.count)"
@@ -371,8 +413,9 @@ struct RadarLoopView: View {
     private func footerLabel(_ loop: RadarLoop) -> String {
         let origin: String
         if let station = loop.station {
-            origin = "Source: \(station.name) NEXRAD station, "
-                   + "\(stationDistance(station)) away."
+            origin = stationDistance(station).map {
+                "Source: \(station.name) NEXRAD station, \($0) away."
+            } ?? "Source: the \(station.name) NEXRAD station, \(station.id)."
         } else {
             origin = "Source: a composite of every NEXRAD radar in range, "
                    + "\(loadedArea.name.lowercased()) view, \(loadedArea.across(unit)) across."
@@ -407,7 +450,12 @@ struct RadarLoopView: View {
 
         let result: RadarLoopResult
         switch source {
-        case .ridge: result = await RadarLoopService.shared.loadLoop(for: city)
+        case .ridge:
+            if let station {
+                result = await RadarLoopService.shared.loadLoop(forStation: station)
+            } else {
+                result = await RadarLoopService.shared.loadLoop(for: city)
+            }
         case .iem:   result = await IEMRadarService.shared.loadLoop(for: city, area: requestedArea)
         }
         switch result {
@@ -481,6 +529,20 @@ struct RadarLoopView: View {
         lastScale = 1
         offset = .zero
         lastOffset = .zero
+    }
+}
+
+/// Weather for a place reached from the radar. Mirrors the browse path: a
+/// city that was never saved has no weather loaded, so fetch it on arrival.
+struct RadarWeatherDestination: View {
+    let city: City
+    @EnvironmentObject private var weatherService: WeatherService
+
+    var body: some View {
+        CityDetailView(city: city)
+            .task {
+                await weatherService.fetchWeatherForDate(for: city, dateOffset: 0)
+            }
     }
 }
 

@@ -15,6 +15,7 @@ enum BrowseDestination: Hashable {
     case alertBrowser
     case alertMeteoAlarmCountries
     case alertDigest(AlertRegion)
+    case radarStations
 }
 
 struct BrowseCitiesView: View {
@@ -64,6 +65,19 @@ struct BrowseCitiesView: View {
                     .accessibilityHint("Double tap to browse countries")
                 }
 
+                if featureFlags.radarLoopEnabled {
+                    Section(header: Text("Radar"),
+                            footer: Text("Open the radar for any National Weather Service station, rather than the one nearest a saved city.")) {
+                        Button {
+                            navPath.append(.radarStations)
+                        } label: {
+                            Label("Browse Radar Stations", systemImage: "antenna.radiowaves.left.and.right")
+                                .foregroundColor(.primary)
+                        }
+                        .accessibilityHint("Double tap to browse all National Weather Service radar stations")
+                    }
+                }
+
                 if featureFlags.alertBrowserEnabled {
                     Section(header: Text("Weather Alerts"),
                             footer: Text("View active government weather alerts by country, independent of your saved cities.")) {
@@ -104,6 +118,8 @@ struct BrowseCitiesView: View {
                     AlertMeteoAlarmCountriesView(navPath: $navPath)
                 case .alertDigest(let region):
                     NationalAlertDigestView(region: region)
+                case .radarStations:
+                    BrowseRadarStationsView()
                 }
             }
         }
