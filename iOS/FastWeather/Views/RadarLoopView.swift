@@ -77,12 +77,19 @@ struct RadarLoopView: View {
     init(city: City) {
         self.city = city
         self.station = nil
+        // Canada has no NEXRAD, and the nearest US station is either far away
+        // or simply missing, so opening on NWS there shows a border city a
+        // picture centred on another country — or nothing at all.
+        _source = State(initialValue: city.country == "Canada" ? .eccc : .ridge)
     }
 
     /// Browsing straight to a station: the composite still needs somewhere to
     /// centre, so the station's own position stands in for a city.
     init(station: RadarStationInfo) {
         self.station = station
+        // Browsing to a site means wanting that site's picture, whichever
+        // network publishes it.
+        _source = State(initialValue: .ridge)
         self.city = City(name: station.name,
                          state: station.stateCode.isEmpty ? nil : station.stateCode,
                          country: "United States",
@@ -92,7 +99,7 @@ struct RadarLoopView: View {
 
     @EnvironmentObject private var settingsManager: SettingsManager
 
-    @State private var source: RadarSource = .ridge
+    @State private var source: RadarSource
     /// Remembered between visits: someone who wants the wide view usually
     /// wants it every time.
     @AppStorage("radarCompositeArea") private var area: RadarArea = .local
@@ -173,7 +180,7 @@ struct RadarLoopView: View {
         VStack(spacing: 4) {
             Picker("Radar source", selection: $source) {
                 ForEach(RadarSource.allCases) { s in
-                    Text(s.shortName).tag(s)
+                    Text(segmentLabel(s)).tag(s)
                 }
             }
             .pickerStyle(.segmented)
@@ -208,6 +215,13 @@ struct RadarLoopView: View {
     }
 
     private var unit: DistanceUnit { settingsManager.settings.distanceUnit }
+
+    /// From the station browser the first choice is this site's own image,
+    /// whether that is an NWS loop or an ECCC scan, so it is named for what
+    /// it is rather than for one of the two networks.
+    private func segmentLabel(_ s: RadarSource) -> String {
+        s == .ridge && station != nil ? "Station" : s.shortName
+    }
 
     private var captionText: String {
         switch source {
@@ -464,7 +478,9 @@ struct RadarLoopView: View {
         switch source {
         case .ridge:
             if let station {
-                result = await RadarLoopService.shared.loadLoop(forStation: station)
+                result = station.network == .eccc
+                    ? await CanadianRadarService.shared.loadLoop(forStation: station)
+                    : await RadarLoopService.shared.loadLoop(forStation: station)
             } else {
                 result = await RadarLoopService.shared.loadLoop(for: city)
             }

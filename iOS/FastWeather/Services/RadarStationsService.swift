@@ -18,9 +18,31 @@
 import Foundation
 import CoreLocation
 
+/// Which country's radar network a site belongs to. They publish different
+/// things: the NWS a ready-made loop GIF, ECCC one finished image per scan.
+enum RadarNetwork: String, Hashable {
+    case nws
+    case eccc
+
+    var shortName: String {
+        switch self {
+        case .nws:  return "NWS"
+        case .eccc: return "ECCC"
+        }
+    }
+
+    var countryName: String {
+        switch self {
+        case .nws:  return "United States"
+        case .eccc: return "Canada"
+        }
+    }
+}
+
 struct RadarStationInfo: Identifiable, Hashable {
-    let id: String              // "KMKX"
+    let id: String              // "KMKX" or "CASBV"
     let name: String            // "Milwaukee"
+    let network: RadarNetwork
     let stateCode: String       // "WI"
     let nearestTown: String     // "Sullivan" — may be empty
     let latitude: Double
@@ -39,7 +61,9 @@ struct RadarStationInfo: Identifiable, Hashable {
     }
 
     /// A radar that has not reported in half an hour is treated as down:
-    /// long enough to rule out an ordinary gap between volume scans.
+    /// long enough to rule out an ordinary gap between volume scans. Only the
+    /// NWS feed says; ECCC publishes no such status, so a Canadian site is
+    /// never claimed to be down rather than being guessed at.
     var isReporting: Bool {
         guard let t = lastDataReceived else { return true }
         return Date().timeIntervalSince(t) < 30 * 60
@@ -57,7 +81,8 @@ final class RadarStationsService {
     private static let userAgent = "WeatherFast (weatherfast.online)"
     private var cached: [RadarStationInfo]?
 
-    /// Every WSR-88D site, with the live reporting state folded in.
+    /// Every site in both networks: the WSR-88D list fetched live, with its
+    /// reporting state, plus Canada's fixed 33.
     func allStations() async -> [RadarStationInfo]? {
         if let cached { return cached }
 
@@ -94,6 +119,7 @@ final class RadarStationsService {
             out.append(RadarStationInfo(
                 id: sid,
                 name: props["name"] as? String ?? sid,
+                network: .nws,
                 stateCode: place?.state ?? "",
                 nearestTown: place?.near ?? "",
                 latitude: coords[1],
@@ -103,8 +129,19 @@ final class RadarStationsService {
         }
 
         guard !out.isEmpty else { return nil }
+        out += Self.canadianStations
         cached = out
         return out
+    }
+
+    /// Canada's network is 32 fixed sites. Unlike the NWS list there is no
+    /// feed to ask, so the sites are baked in; they change on the scale of
+    /// years, and an app that cannot list them offline gains nothing.
+    private static let canadianStations: [RadarStationInfo] = canadianSites.map {
+        RadarStationInfo(id: $0.id, name: $0.name, network: .eccc,
+                         stateCode: $0.province, nearestTown: "",
+                         latitude: $0.lat, longitude: $0.lon,
+                         elevationMetres: nil, lastDataReceived: nil)
     }
 
     /// The feed stamps times like 2026-09-20T13:10:58+00:00.
@@ -278,7 +315,51 @@ final class RadarStationsService {
         "TJUA": ("PR", "G. L. García"),
     ]
 
+    private static let canadianSites: [(id: String, name: String, province: String, lat: Double, lon: Double)] = [
+        (id: "CASAG", name: "Aldergrove", province: "BC", lat: 49.01662, lon: -122.48698),
+        (id: "CASBE", name: "Bethune", province: "SK", lat: 50.57118, lon: -105.1829),
+        (id: "CASBV", name: "Blainville", province: "QC", lat: 45.70634, lon: -73.85852),
+        (id: "CASBI", name: "Britt", province: "ON", lat: 45.79317, lon: -80.53385),
+        (id: "CASCV", name: "Carvel", province: "AB", lat: 53.56056, lon: -114.14495),
+        (id: "CASCM", name: "Chipman", province: "NB", lat: 46.22232, lon: -65.69924),
+        (id: "CASCL", name: "Cold Lake", province: "AB", lat: 54.3785, lon: -110.06138),
+        (id: "CASDR", name: "Dryden", province: "ON", lat: 49.85823, lon: -92.79698),
+        (id: "CASET", name: "Exeter", province: "ON", lat: 43.37243, lon: -81.3807),
+        (id: "CASFM", name: "Fort McMurray", province: "AB", lat: 56.37564, lon: -111.21518),
+        (id: "CASFW", name: "Foxwarren", province: "MB", lat: 50.54887, lon: -101.0857),
+        (id: "CASFT", name: "Franktown", province: "ON", lat: 45.04101, lon: -76.11617),
+        (id: "CASGO", name: "Gore", province: "NS", lat: 45.0985, lon: -63.70433),
+        (id: "CASHP", name: "Halfmoon Peak", province: "BC", lat: 49.52702, lon: -123.85358),
+        (id: "CASHR", name: "Holyrood", province: "NL", lat: 47.32644, lon: -53.12658),
+        (id: "CASKR", name: "King City", province: "ON", lat: 43.96393, lon: -79.57388),
+        (id: "CASLA", name: "Landrienne", province: "QC", lat: 48.55136, lon: -77.80809),
+        (id: "CASMM", name: "Marble Mountain", province: "NL", lat: 48.93028, lon: -57.83417),
+        (id: "CASMB", name: "Marion Bridge", province: "NS", lat: 45.94972, lon: -60.20521),
+        (id: "CASMA", name: "Mont Apica", province: "QC", lat: 47.97791, lon: -71.43083),
+        (id: "CASMR", name: "Montreal River", province: "ON", lat: 47.24773, lon: -84.59652),
+        (id: "CASSS", name: "Mount Silver Star", province: "BC", lat: 50.3695, lon: -119.06436),
+        (id: "CASPG", name: "Prince George", province: "BC", lat: 53.61308, lon: -122.95441),
+        (id: "CASRA", name: "Radisson", province: "SK", lat: 52.52048, lon: -107.44269),
+        (id: "CASSF", name: "Sainte-Françoise", province: "QC", lat: 46.44956, lon: -71.91383),
+        (id: "CASSU", name: "Schuler", province: "AB", lat: 50.3125, lon: -110.19556),
+        (id: "CASRF", name: "Smooth Rock Falls", province: "ON", lat: 49.28146, lon: -81.79406),
+        (id: "CASSR", name: "Spirit River", province: "AB", lat: 55.69494, lon: -119.23043),
+        (id: "CASSM", name: "Strathmore", province: "AB", lat: 51.20613, lon: -113.39937),
+        (id: "CASSN", name: "Superior West", province: "ON", lat: 48.59588, lon: -89.10013),
+        (id: "CASVD", name: "Val d'Irène", province: "QC", lat: 48.48028, lon: -67.60111),
+        (id: "CASWL", name: "Woodlands", province: "MB", lat: 50.15389, lon: -97.77833),
+    ]
+
     static let stateNames: [String: String] = [
+        "AB": "Alberta",
+        "BC": "British Columbia",
+        "MB": "Manitoba",
+        "NB": "New Brunswick",
+        "NL": "Newfoundland and Labrador",
+        "NS": "Nova Scotia",
+        "ON": "Ontario",
+        "QC": "Quebec",
+        "SK": "Saskatchewan",
         "AK": "Alaska",
         "AL": "Alabama",
         "AR": "Arkansas",

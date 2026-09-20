@@ -2,8 +2,9 @@
 //  BrowseRadarStationsView.swift
 //  Fast Weather
 //
-//  Browse the NEXRAD radar network itself — all 159 WSR-88D sites — and open
-//  any one of them, the same way Browse Cities opens a city.
+//  Browse the radar networks themselves — the 159 US WSR-88D sites and
+//  Canada's 33 — and open any one of them, the same way Browse Cities opens
+//  a city.
 //
 //  Why browse radars at all: a city gives you the radar nearest that city.
 //  Sometimes the question is the other way round — what does the radar at
@@ -19,7 +20,7 @@ import CoreLocation
 enum RadarStationSort: String, CaseIterable, Identifiable {
     case nameAZ     = "Name (A–Z)"
     case nameZA     = "Name (Z–A)"
-    case stateAZ    = "State (A–Z)"
+    case stateAZ    = "State or Province (A–Z)"
     case nearest    = "Nearest to Me"
     case northSouth = "North to South"
     case southNorth = "South to North"
@@ -121,6 +122,7 @@ struct BrowseRadarStationsView: View {
     /// "KMKX · near Sullivan · 34 miles away"
     private func detailLine(_ station: RadarStationInfo) -> String {
         var parts = [station.id]
+        if station.network == .eccc { parts.append("Canada") }
         if !station.nearestTown.isEmpty { parts.append("near \(station.nearestTown)") }
         if let away = distancePhrase(station) { parts.append("\(away) away") }
         return parts.joined(separator: " · ")
@@ -129,6 +131,7 @@ struct BrowseRadarStationsView: View {
     private func label(_ station: RadarStationInfo) -> String {
         var parts = ["\(station.name), \(station.stateName)"]
         parts.append("station \(spelled(station.id))")
+        if station.network == .eccc { parts.append("Environment and Climate Change Canada") }
         if !station.nearestTown.isEmpty { parts.append("near \(station.nearestTown)") }
         if let away = distancePhrase(station) { parts.append("\(away) away") }
         if !station.isReporting { parts.append("no recent data") }
@@ -149,10 +152,13 @@ struct BrowseRadarStationsView: View {
     private var countLine: String {
         let shown = visibleStations.count
         let total = stations.count
-        if shown == total {
-            return "\(total) National Weather Service NEXRAD radar stations."
+        guard shown == total else {
+            return "\(shown) of \(total) stations match your search."
         }
-        return "\(shown) of \(total) stations match your search."
+        let us = stations.filter { $0.network == .nws }.count
+        let ca = stations.count - us
+        return "\(us) United States NEXRAD stations from the National Weather Service "
+             + "and \(ca) Canadian sites from Environment and Climate Change Canada."
     }
 
     // MARK: - Sorting and filtering
@@ -167,6 +173,8 @@ struct BrowseRadarStationsView: View {
                 || $0.stateCode.localizedCaseInsensitiveContains(query)
                 || $0.stateName.localizedCaseInsensitiveContains(query)
                 || $0.nearestTown.localizedCaseInsensitiveContains(query)
+                || $0.network.countryName.localizedCaseInsensitiveContains(query)
+                || $0.network.shortName.localizedCaseInsensitiveContains(query)
             }
         }
         return base.sorted(by: comparator)

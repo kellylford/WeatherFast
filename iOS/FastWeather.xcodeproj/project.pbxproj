@@ -21,6 +21,7 @@
 		4B07E53F90DD3EA9329F2D45 /* WeatherCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5456D76628AB29EB3D6E266 /* WeatherCache.swift */; };
 		4D0C3D7F2B79D81702BFFF57 /* BrowseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD557832C1BCA3C9AA2DF4EF /* BrowseModels.swift */; };
 		5BF7DE3C2398278205064E2B /* AlertBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DB44AB014963809D9F8AB2 /* AlertBrowserView.swift */; };
+		5FB425E8CFCBFE1362D4165E /* CanadianRadarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66EEC1D8FD912A9541234A67 /* CanadianRadarService.swift */; };
 		62CB858A1D1017158A62BC44 /* RadarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EED081CD8BA9AD9146E4318 /* RadarService.swift */; };
 		6B0A5D23AB1E6BAB93B5BCED /* MoonCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DEF54F1AE97F7891D18FB90 /* MoonCalculator.swift */; };
 		6CA5EB93D785DE05210F375A /* DeveloperSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F0E524751DEEAE77391AD2 /* DeveloperSettingsView.swift */; };
@@ -146,6 +147,7 @@
 		5C214A72B9AB146E98AAFD1B /* DeveloperSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsView.swift; sourceTree = "<group>"; };
 		63BC18B80FA54B507B3AD22C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		64A90FF007F030B06604F932 /* WidgetWeatherFetcher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetWeatherFetcher.swift; sourceTree = "<group>"; };
+		66EEC1D8FD912A9541234A67 /* CanadianRadarService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CanadianRadarService.swift; sourceTree = "<group>"; };
 		775CE8ABBD916C27DDAC2F8E /* AirQualityView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AirQualityView.swift; sourceTree = "<group>"; };
 		80554E71E10D5B842963E4AF /* AppGroup.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppGroup.swift; sourceTree = "<group>"; };
 		808AC3615E6E747E006B95C9 /* HistoricalWeatherCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HistoricalWeatherCache.swift; sourceTree = "<group>"; };
@@ -384,6 +386,7 @@
 				4941F8FD3DCE8B73C132ADF0 /* RadarStationsService.swift */,
 				483E0E27B80541A687092179 /* RadarMapCompositor.swift */,
 				E076E6A8BAC7AFA878BC31F9 /* ECCCRadarService.swift */,
+				66EEC1D8FD912A9541234A67 /* CanadianRadarService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -641,6 +644,7 @@
 				8524BA4DE11491F95533C5A7 /* BrowseRadarStationsView.swift in Sources */,
 				0179AB18E2362BEF44DDFCA2 /* RadarMapCompositor.swift in Sources */,
 				9F1395A855E67E4CD72DF55C /* ECCCRadarService.swift in Sources */,
+				5FB425E8CFCBFE1362D4165E /* CanadianRadarService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
