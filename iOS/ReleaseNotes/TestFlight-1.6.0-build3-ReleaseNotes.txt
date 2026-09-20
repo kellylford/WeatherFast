@@ -1,0 +1,43 @@
+***Turn the radar on first***
+Radar is off when you install this build, so you won't see it until you switch it on. Here's how:
+
+1. Go to Settings, scroll to the bottom, and choose Developer Settings.
+2. Turn on Radar Loop.
+3. Go back to your cities and open any city.
+4. Open the Actions menu (the "…" button) and choose Radar.
+
+If you can't find radar anywhere in the app, it's almost certainly because step 2 hasn't been done.
+
+***New in this build: Canadian radar***
+Radar now works in Canada, and everyone gets a longer view of the weather.
+
+A third choice on the radar switch, Canada, uses Environment and Climate Change Canada's composite. Despite the name it blends the Canadian and American radars — up to 180 of them — so it works on both sides of the border. It holds 3 hours of history in 11 frames, against 55 minutes for Composite and 18 minutes for NWS. It also shades the areas no radar can see, so a blank patch no longer means both "nothing is falling" and "nobody is looking", and it draws snow separately from rain.
+
+Browse Radar Stations now lists Canada's 32 radar sites alongside the 159 U.S. ones. Each Canadian site has its own picture, with the map, place name, time and legend drawn in, and uses Environment Canada's accessible colour palette built for colour vision deficiency.
+
+Canadian cities now open on a radar source that covers them, instead of starting on the U.S. one and reporting no coverage.
+
+***Radar, if you haven't seen it yet***
+NWS: The National Weather Service's own image from the station nearest your city — the newest picture, a new frame every 2 minutes covering the last 18 minutes. Alaska, Hawaii and Puerto Rico too.
+
+Composite: Every radar in the contiguous U.S. blended on a map centred on your city. 12 frames covering 55 minutes. The Map area switch chooses Local (about 140 miles across) or Regional (about 400 miles).
+
+Canada: as above. The Map area switch works here too.
+
+The loop plays on its own. To step through time, swipe left or right on the picture, as you would in Photos, or use Previous frame and Next frame. Pinch to zoom. The About Radar button explains all three, when to choose each, and who provides them.
+
+VoiceOver: Each frame is a real image, so Intelligent Image Description in iOS 27 can describe it. While VoiceOver is on, the loop stays paused so the picture doesn't change while you're reading it. Swipe left or right with three fingers to move between frames, as you would in Photos.
+
+***What I'd like feedback on***
+- Canadian testers: does radar work where you are, and is the picture useful?
+- Is 3 hours of history worth the coarser 18-minute steps, or do you prefer Composite?
+- Do the descriptions differ between the U.S. and Canadian pictures?
+- Is the station list clear now that it holds both countries?
+- Anything wrong: radar that doesn't match the weather outside, blank areas, missing frames, slow loading, or a place whose radar won't load.
+
+***Fixed in 1.6.0***
+Daylight change: The note showing how much daylight you gained or lost since yesterday wasn't appearing. It shows now.
+
+Forecast banner: "Couldn't load the full forecast" could appear over a forecast that had loaded fine. This has been addressed.
+
+Air quality credits: Settings → Data Sources & Attribution now credits AirNow (U.S. EPA) and the Copernicus Atmosphere Monitoring Service.
