@@ -1,0 +1,27 @@
+***Turn the radar on first***
+Radar is off when you install this build. To switch it on:
+
+1. Go to Settings, scroll to the bottom, and choose Developer Settings.
+2. Turn on Radar Loop.
+3. To try the new forecast frames, also turn on Radar Forecast Frames.
+4. Go back to your cities, open any city, open the Actions menu (the "…" button) and choose Radar.
+
+***New in this build: slower playback***
+Radar animation was too fast to follow. Each frame now stays up for half a second instead of a third, and the newest frame holds for about two seconds before the loop starts over.
+
+***New in this build: forecast frames (experimental)***
+With Radar Forecast Frames on, Composite keeps going past the most recent radar frame with about two hours of forecast, in 15-minute steps. These frames are not radar. They are the NOAA HRRR weather model's prediction of what radar will show, which is what other weather apps call "future radar".
+
+How to tell them apart:
+- Forecast frames have a purple border and a banner reading "FORECAST · model, not radar".
+- VoiceOver starts every forecast frame with "Forecast, not radar", and says "Forecast begins" when you step into them and "Back to observed radar" when you step out.
+- The loop opens on the most recent radar frame and pauses there before the forecast plays.
+
+Forecast frames are on Composite only, and cover the contiguous United States only. NWS and Canada are unchanged.
+
+***What I'd like feedback on***
+- Is the new playback speed right, too slow, or still too fast?
+- Forecast frames: are they useful? Is it always clear which frames are forecast?
+- VoiceOver users: do the forecast announcements and labels make the difference clear without getting in the way?
+- How well did the forecast match what the radar showed later?
+- Anything wrong: slow loading, missing frames, or a forecast that showed nothing when rain was clearly coming.
