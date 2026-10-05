@@ -103,6 +103,32 @@ enum RadarMapCompositor {
         text.draw(at: CGPoint(x: box.minX + pad, y: box.minY + pad), withAttributes: attributes)
     }
 
+    /// Mark a frame as a model forecast, on the picture itself. A forecast
+    /// frame looks exactly like radar, so without this it would pass for an
+    /// observation — to the eye, and to Intelligent Image Description, which
+    /// only knows what is drawn. A full-width banner plus a border make it
+    /// unmistakable even at a glance mid-animation.
+    static func drawForecastBanner(_ text: String, size: CGSize) {
+        let colour = UIColor(red: 0.42, green: 0.16, blue: 0.60, alpha: 1)
+
+        let border = UIBezierPath(rect: CGRect(origin: .zero, size: size).insetBy(dx: 5, dy: 5))
+        border.lineWidth = 10
+        colour.setStroke()
+        border.stroke()
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 32, weight: .bold),
+            .foregroundColor: UIColor.white,
+        ]
+        let label = text as NSString
+        let textSize = label.size(withAttributes: attributes)
+        let strip = CGRect(x: 0, y: 0, width: size.width, height: textSize.height + 20)
+        colour.setFill()
+        UIBezierPath(rect: strip).fill()
+        label.draw(at: CGPoint(x: (size.width - textSize.width) / 2, y: 10),
+                   withAttributes: attributes)
+    }
+
     /// One PNG fetch, decoded. Returns nil rather than throwing: a missing
     /// frame is a gap in a loop, not a reason to lose the whole loop.
     static func fetchImage(_ url: URL, userAgent: String) async -> UIImage? {

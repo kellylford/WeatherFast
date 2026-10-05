@@ -98,6 +98,7 @@ struct RadarLoopView: View {
     }
 
     @EnvironmentObject private var settingsManager: SettingsManager
+    @StateObject private var featureFlags = FeatureFlags.shared
 
     @State private var source: RadarSource
     /// Remembered between visits: someone who wants the wide view usually
@@ -121,7 +122,9 @@ struct RadarLoopView: View {
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
 
-    private let tick = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
+    // 2 frames a second: slow enough to follow a single cell, fast enough to
+    // still read as motion. Testers found 0.3 s too fast to track.
+    private let tick = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -227,6 +230,9 @@ struct RadarLoopView: View {
         switch source {
         case .ridge:
             return source.summary
+        case .iem where featureFlags.radarForecastEnabled:
+            return source.summary + " + 2 hours forecast\n"
+                + area.across(unit) + " across, centred on your city"
         case .iem, .eccc:
             return source.summary + "\n" + area.across(unit) + " across, centred on your city"
         }
@@ -294,17 +300,28 @@ struct RadarLoopView: View {
     }
 
     private func imageLabel(_ loop: RadarLoop) -> String {
-        let position = index == loop.frames.count - 1
-            ? "frame \(index + 1) of \(loop.frames.count), the most recent"
+        let position = index == loop.nowIndex
+            ? "frame \(index + 1) of \(loop.frames.count), the most recent radar"
             : "frame \(index + 1) of \(loop.frames.count)"
 
         let origin = loop.station.map { "From the \($0.name) radar station. " }
             ?? "A composite of every nearby radar, centred on \(city.name), "
              + "\(loadedArea.across(unit)) across. "
 
+        // Lead with "Forecast" so it is the first word heard, before anyone
+        // can take the picture for something a radar actually saw.
+        if loop.isForecast(index) {
+            return "Forecast, not radar. \(position), \(timePhrase(loop)). "
+                + "This is the NOAA HRRR weather model's prediction of what radar will show "
+                + "near \(city.name)\(runPhrase(loop)). It can be wrong about where and when. "
+                + "Use VoiceOver's Intelligent Image Description to hear what this frame shows."
+        }
+
         return "Weather radar near \(city.name), \(position), \(timePhrase(loop)). "
             + origin
-            + "Each step is \(intervalPhrase(loop)); the loop covers \(spanPhrase(loop)). "
+            + "Each step is \(intervalPhrase(loop)); the loop covers \(spanPhrase(loop))"
+            + (loop.forecastCount > 0
+               ? ", followed by \(forecastSpanPhrase(loop)) of model forecast. " : ". ")
             + "Use VoiceOver's Intelligent Image Description to hear what this frame shows."
     }
 
@@ -328,6 +345,11 @@ struct RadarLoopView: View {
         guard let t = frameTime(loop) else { return "" }
         let clockTime = Self.clock.string(from: t)
         let minutesAgo = Int((Date().timeIntervalSince(t) / 60).rounded())
+        if loop.isForecast(index) {
+            let ahead = -minutesAgo
+            return ahead == 1 ? "for \(clockTime), 1 minute from now"
+                              : "for \(clockTime), \(ahead) minutes from now"
+        }
         if minutesAgo <= 0 { return "at \(clockTime), just now" }
         if minutesAgo == 1 { return "at \(clockTime), 1 minute ago" }
         return "at \(clockTime), \(minutesAgo) minutes ago"
@@ -343,12 +365,28 @@ struct RadarLoopView: View {
         return minutes == 1 ? "1 minute" : "\(minutes) minutes"
     }
 
+    private func forecastSpanPhrase(_ loop: RadarLoop) -> String {
+        // The frames sit on quarter hours, so the span from "now" is ragged
+        // (1 h 57 min); the round figure is what's worth saying.
+        let minutes = Int((loop.forecastSpan / 60).rounded())
+        guard minutes >= 90 else { return "about \(minutes) minutes" }
+        let hours = Int((Double(minutes) / 60).rounded())
+        return "about \(hours) hours"
+    }
+
+    /// ", from the model run that started at 2:00 PM"
+    private func runPhrase(_ loop: RadarLoop) -> String {
+        guard let run = loop.forecastRun else { return "" }
+        return ", from the model run that started at \(Self.clock.string(from: run))"
+    }
+
     // MARK: - Controls
 
     private func controls(_ loop: RadarLoop) -> some View {
         VStack(spacing: 14) {
             Text(frameCaption(loop))
-                .font(.subheadline.weight(.medium))
+                .font(.subheadline.weight(loop.isForecast(index) ? .bold : .medium))
+                .foregroundColor(loop.isForecast(index) ? .purple : .primary)
                 .accessibilityHidden(true)
 
             // Scrubber — the fast way to move through the loop by sight.
@@ -361,7 +399,8 @@ struct RadarLoopView: View {
                 step: 1
             )
             .accessibilityLabel("Radar time")
-            .accessibilityValue("Frame \(index + 1) of \(loop.frames.count)")
+            .accessibilityValue("Frame \(index + 1) of \(loop.frames.count)"
+                + (loop.isForecast(index) ? ", forecast" : ""))
 
             HStack(spacing: 28) {
                 Button(action: { step(-1, loop) }) {
@@ -401,6 +440,9 @@ struct RadarLoopView: View {
                     Text("\(loop.sourceName) · every radar in range · \(loadedArea.name.lowercased()) view")
                 }
                 Text("Frames \(intervalPhrase(loop)) apart · \(spanPhrase(loop)) of history")
+                if loop.forecastCount > 0 {
+                    Text("Then \(forecastSpanPhrase(loop)) of model forecast, 15 min apart")
+                }
                 Text(loop.attribution)
             }
             .font(.caption)
@@ -431,7 +473,11 @@ struct RadarLoopView: View {
         let time = frameTime(loop).map { Self.clock.string(from: $0) } ?? ""
         let base = "Frame \(index + 1) of \(loop.frames.count)"
         guard !time.isEmpty else { return base }
-        return index == loop.frames.count - 1
+        if loop.isForecast(index) {
+            let ahead = frameTime(loop).map { Int(($0.timeIntervalSinceNow / 60).rounded()) } ?? 0
+            return "\(base) · \(time) · Forecast, in \(ahead) min"
+        }
+        return index == loop.nowIndex
             ? "\(base) · \(time) · most recent"
             : "\(base) · \(time)"
     }
@@ -446,8 +492,11 @@ struct RadarLoopView: View {
             origin = "Source: a composite of every NEXRAD radar in range, "
                    + "\(loadedArea.name.lowercased()) view, \(loadedArea.across(unit)) across."
         }
+        let forecast = loop.forecastCount > 0
+            ? "Then \(forecastSpanPhrase(loop)) of model forecast, 15 minutes apart. " : ""
         return origin
             + " Frames \(intervalPhrase(loop)) apart, covering \(spanPhrase(loop)). "
+            + forecast
             + loop.attribution
     }
 
@@ -484,14 +533,16 @@ struct RadarLoopView: View {
             } else {
                 result = await RadarLoopService.shared.loadLoop(for: city)
             }
-        case .iem:   result = await IEMRadarService.shared.loadLoop(for: city, area: requestedArea)
+        case .iem:   result = await IEMRadarService.shared.loadLoop(
+                         for: city, area: requestedArea,
+                         includeForecast: featureFlags.radarForecastEnabled)
         case .eccc:  result = await ECCCRadarService.shared.loadLoop(for: city, area: requestedArea)
         }
         switch result {
         case .success(let l):
             loop = l
             loadedArea = requestedArea
-            index = max(l.frames.count - 1, 0)   // open on the most recent frame
+            index = l.nowIndex   // open on the most recent radar, not the forecast's end
             // Animate for sighted users; never animate under VoiceOver.
             voiceOverRunning = UIAccessibility.isVoiceOverRunning
             isPlaying = !voiceOverRunning
@@ -514,9 +565,11 @@ struct RadarLoopView: View {
         isPlaying = false
         let next = index + delta
         guard next >= 0, next < loop.frames.count else { return }
+        let previous = index
         index = next
         resetZoom()
-        AccessibilityNotification.Announcement(frameCaption(loop)).post()
+        AccessibilityNotification.Announcement(
+            boundaryPhrase(from: previous, loop) + frameCaption(loop)).post()
     }
 
     /// A clear horizontal swipe on the unzoomed picture: left for the next
@@ -539,9 +592,21 @@ struct RadarLoopView: View {
             UIAccessibility.post(notification: .pageScrolled, argument: end + frameCaption(loop))
             return
         }
+        let previous = index
         index = next
         resetZoom()
-        UIAccessibility.post(notification: .pageScrolled, argument: frameCaption(loop))
+        UIAccessibility.post(notification: .pageScrolled,
+                             argument: boundaryPhrase(from: previous, loop) + frameCaption(loop))
+    }
+
+    /// Say so when a step crosses between radar and forecast — the picture
+    /// looks the same either side, so the change has to be spoken.
+    private func boundaryPhrase(from previous: Int, _ loop: RadarLoop) -> String {
+        switch (loop.isForecast(previous), loop.isForecast(index)) {
+        case (false, true): return "Forecast begins. Model prediction, not radar. "
+        case (true, false): return "Back to observed radar. "
+        default:            return ""
+        }
     }
 
     private func advanceIfPlaying() {
@@ -549,8 +614,10 @@ struct RadarLoopView: View {
         if holdTicks > 0 { holdTicks -= 1; return }
 
         index = (index + 1) % loop.frames.count
-        // Hold on the newest frame the way the NWS loop itself does.
-        if index == loop.frames.count - 1 { holdTicks = 4 }
+        // Hold on the newest frame the way the NWS loop itself does — and,
+        // with a forecast, on "now" too, so the hand-off from radar to
+        // forecast is a visible beat rather than a seamless blend.
+        if index == loop.frames.count - 1 || index == loop.nowIndex { holdTicks = 3 }  // ~2 s
     }
 
     private func resetZoom() {
@@ -657,6 +724,22 @@ struct RadarInfoView: View {
                     ])
                 }
 
+                if FeatureFlags.shared.radarForecastEnabled {
+                    Section(header: Text("Forecast")) {
+                        Text("With forecast turned on, Composite keeps going after the most recent radar frame with 2 hours of forecast, in steps of 15 minutes. These frames are not radar. They are the NOAA HRRR weather model's prediction of what radar will show.")
+                        InfoPoints(title: "How to tell them apart", points: [
+                            "Forecast frames have a purple border and a banner reading Forecast, model, not radar.",
+                            "VoiceOver says Forecast at the start of every forecast frame, and says Forecast begins when you step into them.",
+                            "The loop pauses on the most recent radar frame before the forecast starts.",
+                        ])
+                        InfoPoints(title: "Keep in mind", points: [
+                            "A model can get a storm's timing, strength or position wrong, and it can miss small showers entirely.",
+                            "The forecast comes from a model run that started 2 to 3 hours ago, so its picture of now may not match the radar exactly.",
+                            "Covers the contiguous United States only.",
+                        ])
+                    }
+                }
+
                 Section(header: Text("Radar and VoiceOver")) {
                     Text("Both images work with VoiceOver's Intelligent Image Description feature. While VoiceOver is on, the loop stays paused so the picture does not change while you are reading it. To move through time one frame at a time, swipe left or right on the picture with three fingers, as you would in Photos, or use Previous frame and Next frame.")
                     Text("A description covers only what is in the picture. If it mentions only places near you, that is because the picture shows only the area around your city. For a wider description, choose Composite and then Regional.")
@@ -672,6 +755,12 @@ struct RadarInfoView: View {
                         name: "Iowa Environmental Mesonet, Iowa State University",
                         detail: "The Composite radar mosaic, built from NWS NEXRAD data.",
                         urlString: "https://mesonet.agron.iastate.edu")
+                    if FeatureFlags.shared.radarForecastEnabled {
+                        RadarCreditRow(
+                            name: "NOAA HRRR model",
+                            detail: "The forecast frames on Composite: the High-Resolution Rapid Refresh model's simulated radar, drawn by the Iowa Environmental Mesonet. Public domain.",
+                            urlString: "https://rapidrefresh.noaa.gov/hrrr/")
+                    }
                     RadarCreditRow(
                         name: "Environment and Climate Change Canada",
                         detail: "The Canada composite, covering Canada and the United States, from the Meteorological Service of Canada. Contains information licensed under the Open Government Licence – Canada.",

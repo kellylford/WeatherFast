@@ -23,6 +23,10 @@ struct DeveloperSettingsView: View {
                         .accessibilityLabel("Radar Loop feature toggle")
                         .accessibilityHint(featureFlags.radarLoopEnabled ? "Radar Loop is enabled. A Radar button appears in city detail showing an animated NEXRAD loop you can step through one frame at a time. US coverage only." : "Radar Loop is disabled. The Radar button will not appear in city detail.")
 
+                    Toggle("Radar Forecast Frames", isOn: $featureFlags.radarForecastEnabled)
+                        .accessibilityLabel("Radar Forecast Frames feature toggle")
+                        .accessibilityHint(featureFlags.radarForecastEnabled ? "Radar Forecast Frames is enabled. The Composite radar continues past now with two hours of NOAA HRRR model forecast, marked as forecast. Requires Radar Loop." : "Radar Forecast Frames is disabled. The Composite radar shows observed radar only.")
+
                     Toggle("My Location Section", isOn: $featureFlags.myLocationEnabled)
                         .accessibilityLabel("My Location feature toggle")
                         .accessibilityHint(featureFlags.myLocationEnabled ? "My Location is enabled. A My Location section appears on the city list when the user setting is also on." : "My Location is disabled globally. The My Location section will not appear regardless of user settings.")

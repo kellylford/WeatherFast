@@ -23,8 +23,15 @@
 //  single-station edge, and lets the city sit in the middle of the picture
 //  instead of wherever it happens to fall relative to the radar tower.
 //
+//  Forecast frames (behind the radarForecastEnabled flag): IEM also renders
+//  NOAA's HRRR model "simulated reflectivity" — the model's picture of what
+//  radar will show — as tiles in the same projection and palette. This is
+//  what other apps call "future radar". It is a model guess, not a
+//  measurement, so every forecast frame is stamped as such on the image.
+//
 //  Radar: NOAA/NWS NEXRAD base reflectivity (N0Q) via Iowa Environmental
-//  Mesonet — public domain data, university-hosted service. Basemap: Apple.
+//  Mesonet — public domain data, university-hosted service. Forecast: NOAA
+//  HRRR, public domain, same service. Basemap: Apple.
 //
 
 import Foundation
@@ -85,10 +92,20 @@ final class IEMRadarService {
     /// twelve frames covering 55 minutes. Oldest first, to match RIDGE.
     private static let minutesAgo: [Int] = [55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0]
 
+    /// HRRR writes simulated reflectivity every 15 minutes. Two hours of it
+    /// is eight frames: enough to see where a storm is heading without
+    /// leaning on the model further out, where it drifts from reality.
+    private static let forecastStep = 15
+    private static let forecastHorizon = 120
+    /// HRRR's subhourly output runs to 18 hours. Past that the tiles are
+    /// blank, and a blank forecast frame would read as "clear skies".
+    private static let maxForecastMinute = 1080
+
     /// Rendered frame size in points.
         // MARK: - Public
 
-    func loadLoop(for city: City, area: RadarArea = .local) async -> RadarLoopResult {
+    func loadLoop(for city: City, area: RadarArea = .local,
+                  includeForecast: Bool = false) async -> RadarLoopResult {
         guard Self.isInCONUS(lat: city.latitude, lon: city.longitude) else {
             return .noCoverage(
                 "\(city.name) is outside the NEXRAD composite. This radar layer covers "
@@ -111,10 +128,13 @@ final class IEMRadarService {
         var times: [Date] = []
         let now = Date()
 
+        // Ask for the model run while the observed frames download.
+        async let latestRun: Date? = includeForecast ? await Self.latestHRRRRun() : nil
+
         for minutes in Self.minutesAgo {
             guard let frame = await composite(
                 snapshot: snapshot, region: region,
-                minutesAgo: minutes, cityName: city.name)
+                layer: Self.observedLayer(minutesAgo: minutes), cityName: city.name)
             else { continue }
             frames.append(frame)
             times.append(now.addingTimeInterval(-Double(minutes) * 60))
@@ -124,15 +144,112 @@ final class IEMRadarService {
             return .failure("Could not download radar tiles from the Iowa Environmental Mesonet.")
         }
 
-        AppLogger.network.debug("IEM radar: \(frames.count) frames for \(city.name)")
-
-        return .success(RadarLoop(
+        var loop = RadarLoop(
             frames: frames,
             frameTimes: times,
             station: nil,                    // a composite has no single station
             sourceName: "IEM composite",
             attribution: "Radar: NWS NEXRAD via Iowa Environmental Mesonet · Map: Apple",
-            fetchedAt: now))
+            fetchedAt: now)
+
+        // Forecast is extra. If the run can't be found or no frame renders,
+        // the observed loop still stands on its own.
+        if let run = await latestRun {
+            let forecast = await forecastFrames(run: run, after: now, snapshot: snapshot,
+                                                region: region, cityName: city.name)
+            if !forecast.isEmpty {
+                loop = RadarLoop(
+                    frames: frames + forecast.map(\.0),
+                    frameTimes: times + forecast.map(\.1),
+                    station: nil,
+                    sourceName: "IEM composite",
+                    attribution: "Radar: NWS NEXRAD · Forecast: NOAA HRRR model · "
+                               + "via Iowa Environmental Mesonet · Map: Apple",
+                    fetchedAt: now,
+                    forecastStart: frames.count,
+                    forecastRun: run)
+            }
+        }
+
+        AppLogger.network.debug("IEM radar: \(loop.observedCount) observed + \(loop.forecastCount) forecast frames for \(city.name)")
+        return .success(loop)
+    }
+
+    // MARK: - Forecast
+
+    /// Forecast frames on the quarter hours after `now`, oldest first. Each
+    /// is the newest available run's forecast for that valid time, so the
+    /// forecast lead (time since the run started) is typically 2–4 hours:
+    /// IEM publishes a run about two hours after it starts.
+    private func forecastFrames(run: Date, after now: Date,
+                                snapshot: MKMapSnapshotter.Snapshot,
+                                region: MKCoordinateRegion,
+                                cityName: String) async -> [(UIImage, Date)] {
+        let step = Double(Self.forecastStep * 60)
+        let firstValid = (now.timeIntervalSince1970 / step).rounded(.up) * step
+
+        var out: [(UIImage, Date)] = []
+        for k in 0..<(Self.forecastHorizon / Self.forecastStep) {
+            let valid = Date(timeIntervalSince1970: firstValid + Double(k) * step)
+            let fMinute = Int((valid.timeIntervalSince(run) / 60).rounded())
+            guard fMinute > 0, fMinute <= Self.maxForecastMinute,
+                  fMinute % Self.forecastStep == 0 else { continue }
+
+            let ahead = Int((valid.timeIntervalSince(now) / 60).rounded())
+            let stamp = "FORECAST · model, not radar · in \(ahead) min"
+            guard let frame = await composite(
+                snapshot: snapshot, region: region,
+                layer: Self.forecastLayer(run: run, minute: fMinute),
+                cityName: cityName, banner: stamp)
+            else { continue }
+            out.append((frame, valid))
+        }
+        return out
+    }
+
+    /// The newest HRRR run IEM has finished rendering. Its 0-minute metadata
+    /// file names the run; the tile cache can't be asked, because an unknown
+    /// layer comes back as a blank 200, not a 404.
+    private static func latestHRRRRun() async -> Date? {
+        guard let url = URL(string: "https://mesonet.agron.iastate.edu/data/gis/images/4326/hrrr/refd_0000.json")
+        else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let initString = json["model_init_utc"] as? String,
+              let run = ISO8601DateFormatter().date(from: initString)
+        else {
+            AppLogger.network.error("IEM radar: could not read the latest HRRR run")
+            return nil
+        }
+        // A run more than six hours old means IEM has stalled. Its forecast
+        // would be stale enough to mislead, so leave the forecast off.
+        guard Date().timeIntervalSince(run) < 6 * 3600 else {
+            AppLogger.network.error("IEM radar: HRRR run \(initString) is too old to use")
+            return nil
+        }
+        return run
+    }
+
+    private static let runFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyyMMddHHmm"
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private static func forecastLayer(run: Date, minute: Int) -> String {
+        String(format: "hrrr::REFD-F%04d-", minute) + runFormatter.string(from: run)
+    }
+
+    /// Current frame has no suffix; every older one is `-mNNm`.
+    private static func observedLayer(minutesAgo: Int) -> String {
+        minutesAgo == 0
+            ? "nexrad-n0q-900913"
+            : String(format: "nexrad-n0q-900913-m%02dm", minutesAgo)
     }
 
     // MARK: - Basemap
@@ -142,12 +259,13 @@ final class IEMRadarService {
 
     private func composite(snapshot: MKMapSnapshotter.Snapshot,
                            region: MKCoordinateRegion,
-                           minutesAgo: Int,
-                           cityName: String) async -> UIImage? {
+                           layer: String,
+                           cityName: String,
+                           banner: String? = nil) async -> UIImage? {
         let base = snapshot.image
         let z = Self.chooseZoom(longitudeSpan: region.span.longitudeDelta)
         let tiles = await fetchTiles(snapshot: snapshot, region: region,
-                                     minutesAgo: minutesAgo, zoom: z)
+                                     layer: layer, zoom: z)
         guard !tiles.isEmpty else { return nil }
 
         let renderer = UIGraphicsImageRenderer(size: base.size)
@@ -162,13 +280,14 @@ final class IEMRadarService {
 
             RadarMapCompositor.drawCityMarker(named: cityName, size: base.size)
             RadarMapCompositor.drawMapAttribution(size: base.size)
+            if let banner { RadarMapCompositor.drawForecastBanner(banner, size: base.size) }
         }
     }
 
     /// Every reflectivity tile covering the snapshot's region, already placed.
     private func fetchTiles(snapshot: MKMapSnapshotter.Snapshot,
                             region: MKCoordinateRegion,
-                            minutesAgo: Int,
+                            layer: String,
                             zoom z: Int) async -> [(UIImage, CGRect)] {
         // Pad by a tenth on every side. Tiles snap outward to whole tiles
         // anyway, so this rarely costs an extra request, and it guarantees no
@@ -192,7 +311,7 @@ final class IEMRadarService {
             for (tx, ty) in coords {
                 group.addTask {
                     guard let image = await Self.fetchTile(
-                        x: tx, y: ty, z: z, minutesAgo: minutesAgo) else { return nil }
+                        x: tx, y: ty, z: z, layer: layer) else { return nil }
                     let nw = CLLocationCoordinate2D(
                         latitude: Self.tileLat(ty, z), longitude: Self.tileLon(tx, z))
                     let se = CLLocationCoordinate2D(
@@ -210,11 +329,7 @@ final class IEMRadarService {
         }
     }
 
-    private static func fetchTile(x: Int, y: Int, z: Int, minutesAgo: Int) async -> UIImage? {
-        // Current frame has no suffix; every older one is `-mNNm`.
-        let layer = minutesAgo == 0
-            ? "nexrad-n0q-900913"
-            : String(format: "nexrad-n0q-900913-m%02dm", minutesAgo)
+    private static func fetchTile(x: Int, y: Int, z: Int, layer: String) async -> UIImage? {
         let urlString = "https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/\(layer)/\(z)/\(x)/\(y).png"
         guard let url = URL(string: urlString) else { return nil }
 

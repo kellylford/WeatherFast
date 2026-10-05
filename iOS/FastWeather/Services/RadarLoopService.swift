@@ -42,17 +42,37 @@ struct RadarLoop {
     /// One-line credit shown under the controls.
     let attribution: String
     let fetchedAt: Date
+    /// Index of the first model-forecast frame, or nil when every frame is
+    /// observed radar. Frames from here on are a weather model's simulated
+    /// radar, not measurements, and must be presented as such.
+    var forecastStart: Int? = nil
+    /// When the model run behind the forecast frames started.
+    var forecastRun: Date? = nil
 
-    /// Gap between consecutive frames. Both sources are evenly spaced.
+    /// Observed frames only — the forecast tail is spaced differently.
+    var observedCount: Int { forecastStart ?? frames.count }
+    var forecastCount: Int { frames.count - observedCount }
+    /// The newest observed frame: "now", where the loop opens.
+    var nowIndex: Int { max(observedCount - 1, 0) }
+
+    func isForecast(_ i: Int) -> Bool { forecastStart.map { i >= $0 } ?? false }
+
+    /// Gap between consecutive observed frames. Every source is evenly spaced.
     var interval: TimeInterval {
-        guard frameTimes.count >= 2 else { return 0 }
+        guard observedCount >= 2 else { return 0 }
         return frameTimes[1].timeIntervalSince(frameTimes[0])
     }
 
-    /// Wall-clock span from oldest to newest frame.
+    /// Wall-clock span from oldest to newest observed frame.
     var span: TimeInterval {
-        guard let f = frameTimes.first, let l = frameTimes.last else { return 0 }
-        return l.timeIntervalSince(f)
+        guard observedCount >= 1, let f = frameTimes.first else { return 0 }
+        return frameTimes[observedCount - 1].timeIntervalSince(f)
+    }
+
+    /// How far past "now" the last forecast frame reaches.
+    var forecastSpan: TimeInterval {
+        guard forecastCount > 0, let l = frameTimes.last else { return 0 }
+        return l.timeIntervalSince(frameTimes[nowIndex])
     }
 }
 

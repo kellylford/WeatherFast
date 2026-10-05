@@ -30,6 +30,15 @@ class FeatureFlags: ObservableObject {
             UserDefaults.standard.set(radarLoopEnabled, forKey: "feature_radar_loop_enabled")
         }
     }
+
+    /// Enable/disable forecast frames on the Composite radar (experimental).
+    /// Appends two hours of NOAA HRRR simulated radar after "now", stamped as
+    /// a model forecast. US only; needs radarLoopEnabled to be reachable.
+    @Published var radarForecastEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(radarForecastEnabled, forKey: "feature_radar_forecast_enabled")
+        }
+    }
     
     /// Enable/disable weather around me feature (in development)
     /// Set to true to show regional weather comparison button and functionality
@@ -154,6 +163,7 @@ class FeatureFlags: ObservableObject {
         // Load saved feature flag states
         self.radarEnabled = UserDefaults.standard.bool(forKey: "feature_radar_enabled")
         self.radarLoopEnabled = UserDefaults.standard.bool(forKey: "feature_radar_loop_enabled")
+        self.radarForecastEnabled = UserDefaults.standard.bool(forKey: "feature_radar_forecast_enabled")
         self.weatherAroundMeEnabled = UserDefaults.standard.bool(forKey: "feature_weather_around_me_enabled")
         self.userGuideEnabled = UserDefaults.standard.bool(forKey: "feature_user_guide_enabled")
         self.weatherKitAlertsEnabled = UserDefaults.standard.bool(forKey: "feature_weatherkit_alerts_enabled")
@@ -175,6 +185,9 @@ class FeatureFlags: ObservableObject {
         }
         if !UserDefaults.standard.contains(key: "feature_radar_loop_enabled") {
             self.radarLoopEnabled = false  // Off by default; opt in via Developer Settings
+        }
+        if !UserDefaults.standard.contains(key: "feature_radar_forecast_enabled") {
+            self.radarForecastEnabled = false  // Off by default; prototype
         }
         if !UserDefaults.standard.contains(key: "feature_weather_around_me_enabled") {
             self.weatherAroundMeEnabled = true  // Enabled by default
