@@ -1,0 +1,27 @@
+***New in this build: Open at Launch***
+You can now choose a city for WeatherFast to open to, instead of your city list. The app starts on that city's full weather, and Back takes you to your city list.
+
+To choose a city, use Open at Launch in any of these places:
+- Flat view: the city's Actions menu.
+- List view: touch and hold the city, or use the VoiceOver actions on it.
+- The city's own screen: the Actions menu.
+- Settings, Display Options, Open at Launch, which also shows your current choice.
+
+My Location can be your choice too. On the city you've chosen, the option reads Stop Opening at Launch, which takes you back to opening on the city list.
+
+The choice only applies when the app starts. Switching away briefly and coming back leaves you where you were. It is saved on each device separately, so your iPhone and iPad can open to different cities, even with iCloud sync on.
+
+***What I'd like feedback on***
+- Is Open at Launch easy to find and to turn off again?
+- VoiceOver users: when the app opens on a city, does focus land somewhere sensible, and is it clear how to get back to the list?
+- With My Location chosen, does the app open quickly enough?
+
+***Fixed in 1.6.0***
+Daylight change: The note showing how much daylight you gained or lost since yesterday wasn't appearing. It shows now.
+
+Forecast banner: "Couldn't load the full forecast" could appear over a forecast that had loaded fine, after a background refresh hiccup. This has been addressed.
+
+Air quality credits: Settings, Data Sources & Attribution now credits AirNow (U.S. EPA) and the Copernicus Atmosphere Monitoring Service for air quality data.
+
+***Radar testers***
+Radar is unchanged from build 4 and is still off until you turn on Radar Loop in Settings, Developer Settings.
