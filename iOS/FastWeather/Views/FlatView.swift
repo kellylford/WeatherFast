@@ -11,6 +11,7 @@ struct FlatView: View {
     @EnvironmentObject var weatherService: WeatherService
     @EnvironmentObject var settingsManager: SettingsManager
     @EnvironmentObject var myLocationService: MyLocationService
+    @ObservedObject private var launchCityService = LaunchCityService.shared
     @Binding var selectedCityForHistory: City?
     @Binding var selectedCityForDetail: City?
     @State private var alertSheetItem: AlertSheetItem?  // Stable sheet item to prevent re-presentation loop
@@ -150,6 +151,12 @@ struct FlatView: View {
                 Label("Historical Weather", systemImage: "calendar")
             }
 
+            Button(action: {
+                launchCityService.toggleMyLocation()
+            }) {
+                LaunchCityLabel(isSelected: launchCityService.launchCity == .myLocation)
+            }
+
             Divider()
 
             Button(action: {
@@ -279,6 +286,12 @@ struct FlatView: View {
                 viewHistoricalWeather(for: city)
             }) {
                 Label("Historical Weather", systemImage: "calendar")
+            }
+
+            Button(action: {
+                launchCityService.toggle(city)
+            }) {
+                LaunchCityLabel(isSelected: launchCityService.isLaunchCity(city))
             }
             
             Divider()

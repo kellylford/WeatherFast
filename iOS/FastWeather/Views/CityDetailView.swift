@@ -15,6 +15,7 @@ struct CityDetailView: View {
     @EnvironmentObject var weatherService: WeatherService
     @EnvironmentObject var settingsManager: SettingsManager
     @StateObject private var featureFlags = FeatureFlags.shared
+    @ObservedObject private var launchCityService = LaunchCityService.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showingHistoricalWeather = false
     @State private var showingRadar = false
@@ -51,6 +52,18 @@ struct CityDetailView: View {
         weatherService.failedCacheKeys.contains(cacheKey)
     }
     
+    /// The saved-list entry for this city (matched by coordinates, like isSaved),
+    /// so Open at Launch uses the saved city's id even when opened from Browse.
+    private var savedCity: City? {
+        weatherService.savedCities.first {
+            $0.latitude == city.latitude && $0.longitude == city.longitude
+        }
+    }
+
+    private var isMyLocation: Bool {
+        city.id == MyLocationService.shared.locationCity?.id
+    }
+
     private var isSaved: Bool {
         weatherService.savedCities.contains {
             $0.latitude == city.latitude && $0.longitude == city.longitude
@@ -860,6 +873,16 @@ struct CityDetailView: View {
                             }
                         }
                         
+                        if let savedCity {
+                            Button(action: { launchCityService.toggle(savedCity) }) {
+                                LaunchCityLabel(isSelected: launchCityService.isLaunchCity(savedCity))
+                            }
+                        } else if isMyLocation {
+                            Button(action: { launchCityService.toggleMyLocation() }) {
+                                LaunchCityLabel(isSelected: launchCityService.launchCity == .myLocation)
+                            }
+                        }
+
                         if isSaved {
                             Divider()
                             
@@ -885,7 +908,7 @@ struct CityDetailView: View {
                     }
                     .padding(.horizontal)
                     .accessibilityLabel("Actions menu")
-                    .accessibilityHint("Opens menu with options to refresh weather, view historical weather, precipitation forecast, weather around me, and remove city")
+                    .accessibilityHint("Opens menu with options to refresh weather, view historical weather, precipitation forecast, weather around me, open at launch, and remove city")
                     
                     // Dynamically render detail sections based on settings order
                     let _ = debugLog("📊 Detail categories: \(settingsManager.settings.detailCategories.map { "\($0.category)=\($0.isEnabled)" }.joined(separator: ", "))")

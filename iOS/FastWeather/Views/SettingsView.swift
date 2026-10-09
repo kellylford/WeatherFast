@@ -11,6 +11,7 @@ struct SettingsView: View {
     @EnvironmentObject var settingsManager: SettingsManager
     @EnvironmentObject var weatherService: WeatherService
     @StateObject private var featureFlags = FeatureFlags.shared
+    @ObservedObject private var launchCityService = LaunchCityService.shared
     @AppStorage("defaultBrowseSortOrder") private var defaultBrowseSortOrderRaw: String = "Name (A–Z)"
     @AppStorage(iCloudSyncService.enabledKey) private var iCloudSyncEnabled: Bool = false
     @State private var showingResetAlert = false
@@ -28,6 +29,38 @@ struct SettingsView: View {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
     }
     
+    private var showMyLocationOption: Bool {
+        featureFlags.myLocationEnabled && settingsManager.settings.myLocationEnabled
+    }
+
+    /// The launch city, shown as City List when it no longer exists or My Location is hidden.
+    private var launchCitySelection: Binding<LaunchCity> {
+        Binding(
+            get: {
+                switch launchCityService.launchCity {
+                case .myLocation where !showMyLocationOption:
+                    return .cityList
+                case .city(let id) where !weatherService.savedCities.contains(where: { $0.id == id }):
+                    return .cityList
+                default:
+                    return launchCityService.launchCity
+                }
+            },
+            set: { launchCityService.launchCity = $0 }
+        )
+    }
+
+    private var launchCityName: String {
+        switch launchCitySelection.wrappedValue {
+        case .cityList:
+            return "City List"
+        case .myLocation:
+            return "My Location"
+        case .city(let id):
+            return weatherService.savedCities.first(where: { $0.id == id })?.displayName ?? "City List"
+        }
+    }
+
     var body: some View {
         NavigationView {
             Form {
@@ -290,6 +323,25 @@ struct SettingsView: View {
                     }
                     .accessibilityLabel("View mode, currently \(settingsManager.settings.viewMode.rawValue)")
                     .accessibilityHint("Choose between Flat and List view. Table view can be enabled in Developer Settings.")
+
+                    Picker(selection: launchCitySelection) {
+                        Text("City List").tag(LaunchCity.cityList)
+                        if showMyLocationOption {
+                            Text("My Location").tag(LaunchCity.myLocation)
+                        }
+                        ForEach(weatherService.savedCities) { city in
+                            Text(city.displayName).tag(LaunchCity.city(city.id))
+                        }
+                    } label: {
+                        HStack {
+                            Text("Open at Launch")
+                            Spacer()
+                            Text(launchCityName)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .accessibilityLabel("Open at launch, currently \(launchCityName)")
+                    .accessibilityHint("Choose what Weather Fast shows when it starts. This setting stays on this device.")
                     
                     Picker(selection: $settingsManager.settings.displayMode) {
                         ForEach(DisplayMode.allCases, id: \.self) { mode in

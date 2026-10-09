@@ -12,6 +12,7 @@ struct MyCitiesView: View {
     @EnvironmentObject var settingsManager: SettingsManager
     @EnvironmentObject var myLocationService: MyLocationService
     @StateObject private var featureFlags = FeatureFlags.shared
+    @ObservedObject private var launchCityService = LaunchCityService.shared
     @State private var showingSettings = false
     @State private var showingAddCity = false
     @State private var selectedCityForHistory: City?
@@ -122,6 +123,16 @@ struct MyCitiesView: View {
                         if myLocationService.locationCity == nil {
                             Task { await myLocationService.refresh() }
                         }
+                    }
+                }
+                .task {
+                    // Open the chosen launch city on top of the list; Back returns to the list.
+                    if let city = await launchCityService.cityForLaunch(
+                        savedCities: weatherService.savedCities,
+                        myLocationService: myLocationService,
+                        showMyLocation: showMyLocation
+                    ) {
+                        selectedCityForDetail = city
                     }
                 }
                 .onChange(of: settingsManager.settings.myLocationEnabled) { _, isEnabled in

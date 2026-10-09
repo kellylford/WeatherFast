@@ -69,6 +69,7 @@
 		A1000WARMB1 /* WeatherAroundMeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000WARM1 /* WeatherAroundMeView.swift */; };
 		A1000WARMB2 /* RegionalWeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000WARM2 /* RegionalWeatherService.swift */; };
 		A1MYLOC002 /* MyLocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1MYLOC001 /* MyLocationService.swift */; };
+		A1LAUNCH002 /* LaunchCityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1LAUNCH001 /* LaunchCityService.swift */; };
 		A6886D9C7A65040E1717E6A4 /* FormatHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6EEC9A0A5A7E9A8E6CDB3BB /* FormatHelperTests.swift */; };
 		AABCDEF02 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABCDEF01 /* Secrets.swift */; };
 		AAE791FC717973BF6D2C064A /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80554E71E10D5B842963E4AF /* AppGroup.swift */; };
@@ -194,6 +195,7 @@
 		A1000WARM1 /* WeatherAroundMeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherAroundMeView.swift; sourceTree = "<group>"; };
 		A1000WARM2 /* RegionalWeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegionalWeatherService.swift; sourceTree = "<group>"; };
 		A1MYLOC001 /* MyLocationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MyLocationService.swift; sourceTree = "<group>"; };
+		A1LAUNCH001 /* LaunchCityService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchCityService.swift; sourceTree = "<group>"; };
 		A5456D76628AB29EB3D6E266 /* WeatherCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeatherCache.swift; sourceTree = "<group>"; };
 		A5F0E524751DEEAE77391AD2 /* DeveloperSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsView.swift; sourceTree = "<group>"; };
 		A62CB507C34F8584AF86B4EB /* FastWeatherWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FastWeatherWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -370,6 +372,7 @@
 				1311D88F8BCB7E6528F708FD /* DirectionalCityService.swift */,
 				F83A2A75D10D105C7225AE79 /* LocationService.swift */,
 				A1MYLOC001 /* MyLocationService.swift */,
+				A1LAUNCH001 /* LaunchCityService.swift */,
 				3B7B06EFA7D170A6D9BA8847 /* WeatherHelpers.swift */,
 				A5456D76628AB29EB3D6E266 /* WeatherCache.swift */,
 				808AC3615E6E747E006B95C9 /* HistoricalWeatherCache.swift */,
@@ -616,6 +619,7 @@
 				0B20A334AA1FE3314940526C /* DirectionalCityService.swift in Sources */,
 				FCF060427E69A6D68459749C /* LocationService.swift in Sources */,
 				A1MYLOC002 /* MyLocationService.swift in Sources */,
+				A1LAUNCH002 /* LaunchCityService.swift in Sources */,
 				21615169040A120F379786F1 /* WeatherHelpers.swift in Sources */,
 				4B07E53F90DD3EA9329F2D45 /* WeatherCache.swift in Sources */,
 				90B76CB12EE73F0BF533980A /* HistoricalWeatherCache.swift in Sources */,

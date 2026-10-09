@@ -13,6 +13,7 @@ struct ListView: View {
     @EnvironmentObject var myLocationService: MyLocationService
     @Environment(\.editMode) var editMode
     @StateObject private var featureFlags = FeatureFlags.shared
+    @ObservedObject private var launchCityService = LaunchCityService.shared
     @Binding var selectedCityForHistory: City?
     @State private var alertSheetItem: AlertSheetItem?  // Stable sheet item to prevent re-presentation loop
     @State private var weatherAroundMeCity: City?  // Non-nil while the Weather Around Me sheet is presented
@@ -124,6 +125,9 @@ struct ListView: View {
             UIAccessibility.post(notification: .announcement, argument: "Refreshing location")
             Task { await myLocationService.refresh() }
         }
+        .accessibilityAction(named: LaunchCityLabel.title(isSelected: launchCityService.launchCity == .myLocation)) {
+            launchCityService.toggleMyLocation()
+        }
         .accessibilityAction(named: "View Historical Weather") {
             selectedCityForHistory = city
             UIAccessibility.post(notification: .announcement, argument: "Opening historical weather for \(city.displayName)")
@@ -155,6 +159,12 @@ struct ListView: View {
                 Task { await myLocationService.refresh() }
             } label: {
                 Label("Refresh My Location", systemImage: "arrow.clockwise")
+            }
+
+            Button {
+                launchCityService.toggleMyLocation()
+            } label: {
+                LaunchCityLabel(isSelected: launchCityService.launchCity == .myLocation)
             }
 
             Divider()
@@ -317,6 +327,12 @@ struct ListView: View {
             Label("View Historical Weather", systemImage: "calendar")
         }
 
+        Button(action: {
+            launchCityService.toggle(city)
+        }) {
+            LaunchCityLabel(isSelected: launchCityService.isLaunchCity(city))
+        }
+
         if featureFlags.weatherAroundMeEnabled {
             Button(action: {
                 weatherAroundMeCity = city
@@ -440,6 +456,9 @@ struct ListView: View {
         }
         .accessibilityAction(named: "View Historical Weather") {
             viewHistoricalWeather(for: city)
+        }
+        .accessibilityAction(named: LaunchCityLabel.title(isSelected: launchCityService.isLaunchCity(city))) {
+            launchCityService.toggle(city)
         }
         .accessibilityAction(named: "Glance Ahead") {
             let cacheKey = WeatherCacheKey(cityId: city.id, dateOffset: 0)
