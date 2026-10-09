@@ -1,27 +1,37 @@
-***New in this build: Open at Launch***
-You can now choose a city for WeatherFast to open to, instead of your city list. The app starts on that city's full weather, and Back takes you to your city list.
+***What's in this build***
+- New: Open at Launch, which opens WeatherFast on a city of your choice instead of your city list.
+- Preliminary radar feature, off by default. Instructions for turning it on are below.
 
-To choose a city, use Open at Launch in any of these places:
-- Flat view: the city's Actions menu.
-- List view: touch and hold the city, or use the VoiceOver actions on it.
-- The city's own screen: the Actions menu.
-- Settings, Display Options, Open at Launch, which also shows your current choice.
+***New: Open at Launch***
+Choose a city and WeatherFast starts on that city's full weather. Back takes you to your city list.
 
-My Location can be your choice too. On the city you've chosen, the option reads Stop Opening at Launch, which takes you back to opening on the city list.
+Open at Launch is in each city's Actions menu (Flat view), when you touch and hold a city or use its VoiceOver actions (List view), in the Actions menu on a city's own screen, and in Settings, Display Options, Open at Launch, which also shows your current choice. My Location can be your choice too. On the chosen city the option reads Stop Opening at Launch.
 
-The choice only applies when the app starts. Switching away briefly and coming back leaves you where you were. It is saved on each device separately, so your iPhone and iPad can open to different cities, even with iCloud sync on.
+It only applies when the app starts, so switching away briefly leaves you where you were. Each device keeps its own choice, even with iCloud sync on.
+
+***Preliminary radar (off by default)***
+To turn it on: go to Settings, scroll to the bottom, choose Developer Settings, and turn on Radar Loop. Then open any city, open the Actions menu and choose Radar. To also try forecast frames, turn on Radar Forecast Frames.
+
+The switch at the top of the Radar screen picks the source:
+- NWS: the National Weather Service image from the station nearest your city. Newest picture, a frame every 2 minutes over the last 18 minutes. Includes Alaska, Hawaii and Puerto Rico.
+- Composite: all U.S. radars blended on a map centred on your city. 12 frames over 55 minutes. Map area chooses Local (about 140 miles) or Regional (about 400 miles).
+- Canada: Environment Canada's composite of Canadian and U.S. radars. 3 hours of history, shades areas no radar can see, and shows snow separately from rain.
+
+Forecast frames (experimental, Composite only): about two hours of model forecast after the latest radar frame. They have a purple border and a "FORECAST · model, not radar" banner, and VoiceOver says "Forecast, not radar" on each.
+
+Browse Radar Stations, in the Browse tab, lists all 159 U.S. and 32 Canadian radar sites. You can sort and search them, and open a station's radar directly.
+
+The loop plays on its own. Swipe left or right on the picture, or use Previous frame and Next frame, to step through time. Pinch to zoom. About Radar explains each source.
+
+VoiceOver: each frame is a real image, so Intelligent Image Description in iOS 27 can describe it. The loop stays paused while VoiceOver is on. Swipe left or right with three fingers to move between frames.
 
 ***What I'd like feedback on***
-- Is Open at Launch easy to find and to turn off again?
-- VoiceOver users: when the app opens on a city, does focus land somewhere sensible, and is it clear how to get back to the list?
-- With My Location chosen, does the app open quickly enough?
+- Is Open at Launch easy to find and to turn off again? VoiceOver users: when the app opens on a city, is it clear how to get back to the list?
+- Radar: which source is most useful to you, and why? Is the playback speed right?
+- VoiceOver users: do the radar descriptions tell you what you want to know?
+- Anything wrong: radar that doesn't match the weather outside, blank areas, slow loading, or a place whose radar won't load.
 
 ***Fixed in 1.6.0***
-Daylight change: The note showing how much daylight you gained or lost since yesterday wasn't appearing. It shows now.
-
-Forecast banner: "Couldn't load the full forecast" could appear over a forecast that had loaded fine, after a background refresh hiccup. This has been addressed.
-
-Air quality credits: Settings, Data Sources & Attribution now credits AirNow (U.S. EPA) and the Copernicus Atmosphere Monitoring Service for air quality data.
-
-***Radar testers***
-Radar is unchanged from build 4 and is still off until you turn on Radar Loop in Settings, Developer Settings.
+- The daylight gained or lost since yesterday now shows.
+- "Couldn't load the full forecast" no longer appears over a forecast that loaded fine.
+- Settings, Data Sources & Attribution now credits AirNow (U.S. EPA) and the Copernicus Atmosphere Monitoring Service for air quality data.
