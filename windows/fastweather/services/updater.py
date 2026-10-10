@@ -13,7 +13,7 @@ import tempfile
 from .. import __version__
 from . import http
 
-GITHUB_REPO = "kellylford/WeatherFast"
+GITHUB_REPO = "TheIdeaPlace/WeatherFast"
 RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases?per_page=30"
 # This is a multi-platform repo; Windows releases are tagged `windows-v<semver>`
 # so the updater never picks up an iOS or web release.

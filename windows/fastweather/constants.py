@@ -22,7 +22,7 @@ DEFAULT_TIMEOUT = 10
 
 # Published, formatted user guide (built from docs/user-guide.md by the
 # publish-user-guide workflow and served from GitHub Pages).
-USER_GUIDE_URL = "https://kellylford.github.io/WeatherFast/"
+USER_GUIDE_URL = "https://theideaplace.github.io/WeatherFast/"
 
 # Default seed cities: display name -> [lat, lon]
 DEFAULT_CITIES = {

@@ -25,7 +25,7 @@ jobs:
   build:
     runs-on: windows-latest
     # Runs in the `azure-signing` environment so the OIDC token's subject is
-    # repo:kellylford/WeatherFast:environment:azure-signing, which the Azure
+    # repo:TheIdeaPlace@340125137/WeatherFast@1092328789:environment:azure-signing (numeric-id form; moved from kellylford on 2026-10-10), which the Azure
     # federated credential trusts (wildcard tag subjects aren't supported in this
     # tenant). This is ONLY a claim-matching mechanism, not a deployment gate — do
     # not add protection rules to this environment or every build, including PRs,
