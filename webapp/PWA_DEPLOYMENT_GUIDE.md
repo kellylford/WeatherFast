@@ -49,7 +49,7 @@ webapp/international-cities-cached.json
 # If using GitHub Pages:
 1. Go to your repo → Settings → Pages
 2. Source: Deploy from main branch, /webapp folder
-3. Your site will be at: https://kellylford.github.io/WeatherFast/
+3. Your site will be at: https://theideaplace.github.io/WeatherFast/
 ```
 
 ### HTTPS Requirement

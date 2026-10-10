@@ -14,7 +14,7 @@
 #define MyAppName "WeatherFast"
 #define MyAppPublisher "Kelly Ford"
 #define MyAppExeName "WeatherFast.exe"
-#define MyAppURL "https://github.com/kellylford/WeatherFast"
+#define MyAppURL "https://github.com/TheIdeaPlace/WeatherFast"
 
 [Setup]
 ; Stable AppId so upgrades replace the prior install (never change this GUID).

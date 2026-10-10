@@ -107,6 +107,6 @@ None reported
 
 ---
 
-**Full Changelog:** [v1.1...v2.0](https://github.com/kellylford/WeatherFast/compare/v1.1...v2.0)
+**Full Changelog:** [v1.1...v2.0](https://github.com/TheIdeaPlace/WeatherFast/compare/v1.1...v2.0)
 
-**Download:** See [Releases](https://github.com/kellylford/WeatherFast/releases)
+**Download:** See [Releases](https://github.com/TheIdeaPlace/WeatherFast/releases)

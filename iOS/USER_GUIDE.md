@@ -242,5 +242,5 @@ No API key required. No account required. No data tracking.
 
 ## Reporting Issues
 
-[https://github.com/kellylford/WeatherFast/issues](https://github.com/kellylford/WeatherFast/issues)
+[https://github.com/TheIdeaPlace/WeatherFast/issues](https://github.com/TheIdeaPlace/WeatherFast/issues)
 

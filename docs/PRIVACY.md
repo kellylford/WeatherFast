@@ -56,12 +56,12 @@ Any changes to this privacy policy will be posted in this file and reflected in 
 ## Open Source
 
 FastWeather is open-source software. You can review the complete source code at:
-https://github.com/kellylford/WeatherFast
+https://github.com/TheIdeaPlace/WeatherFast
 
 ## Contact
 
 For questions about this privacy policy, please open an issue on the GitHub repository:
-https://github.com/kellylford/WeatherFast/issues
+https://github.com/TheIdeaPlace/WeatherFast/issues
 
 ## Your Rights
 

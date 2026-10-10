@@ -55,7 +55,7 @@ This application implements the following accessibility features:
 
 1. Clone the repository and switch to the WebApp branch:
    ```bash
-   git clone https://github.com/kellylford/WeatherFast.git
+   git clone https://github.com/TheIdeaPlace/WeatherFast.git
    cd FastWeather
    git checkout WebApp
    ```

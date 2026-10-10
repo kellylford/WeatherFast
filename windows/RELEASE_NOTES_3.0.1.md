@@ -87,4 +87,4 @@ line. Alert text is now rejoined into whole paragraphs.
 - Fixed the packaging fault described under *If you already have 3.0.0*, which
   also prevented automatic updates from installing.
 
-Full user guide: https://kellylford.github.io/WeatherFast/
+Full user guide: https://theideaplace.github.io/WeatherFast/
